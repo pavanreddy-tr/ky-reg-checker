@@ -85,7 +85,7 @@ Put applicable ones first, needs-info second, not-applies last.`;
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.1,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 8192,
             responseMimeType: 'application/json'
           }
         })
