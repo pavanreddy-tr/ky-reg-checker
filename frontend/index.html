@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KY Engine Regulation Checker — EEC</title>
+<style>
+  :root {
+    --blue: #2563eb;
+    --blue-light: #eff6ff;
+    --blue-border: #bfdbfe;
+    --green: #16a34a;
+    --green-light: #dcfce7;
+    --amber: #d97706;
+    --amber-light: #fef3c7;
+    --red: #dc2626;
+    --red-light: #fef2f2;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-700: #374151;
+    --gray-900: #111827;
+    --white: #ffffff;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-900);
+    min-height: 100vh;
+  }
+
+  /* TOP BAR */
+  .topbar {
+    background: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    height: 56px;
+    gap: 12px;
+  }
+  .topbar-logo {
+    width: 32px; height: 32px;
+    background: var(--blue);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 14px; flex-shrink: 0;
+  }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--gray-900); }
+  .topbar-sub { font-size: 12px; color: var(--gray-400); margin-left: 4px; }
+
+  /* LAYOUT */
+  .layout { display: grid; grid-template-columns: 340px 1fr; min-height: calc(100vh - 56px); }
+  .sidebar { background: var(--white); border-right: 1px solid var(--gray-200); padding: 1.5rem; overflow-y: auto; }
+  .main { padding: 1.5rem; overflow-y: auto; }
+
+  /* SIDEBAR FORM */
+  .sidebar h2 { font-size: 13px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 1rem; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; }
+  .field select, .field input[type="number"], .field input[type="text"] {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--gray-200);
+    border-radius: 8px; font-size: 13px; background: var(--white);
+    color: var(--gray-900); outline: none; transition: border-color 0.15s;
+  }
+  .field select:focus, .field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,0.08); }
+  .field .hint { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+  .field .err { font-size: 11px; color: var(--red); margin-top: 3px; min-height: 14px; }
+  .divider { height: 1px; background: var(--gray-200); margin: 16px 0; }
+  .run-btn {
+    width: 100%; padding: 10px; font-size: 14px; font-weight: 600;
+    background: var(--blue); color: white; border: none; border-radius: 8px;
+    cursor: pointer; transition: opacity 0.15s; margin-top: 4px;
+  }
+  .run-btn:hover { opacity: 0.88; }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .clear-btn {
+    width: 100%; padding: 8px; font-size: 13px; font-weight: 500;
+    background: var(--gray-100); color: var(--gray-700); border: 1px solid var(--gray-200);
+    border-radius: 8px; cursor: pointer; margin-top: 8px;
+  }
+  .clear-btn:hover { background: var(--gray-200); }
+
+  /* MAIN PANEL — EMPTY STATE */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; min-height: 400px; text-align: center; padding: 2rem;
+  }
+  .empty-icon { font-size: 48px; margin-bottom: 1rem; opacity: 0.25; }
+  .empty-state h3 { font-size: 16px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+  .empty-state p { font-size: 13px; color: var(--gray-400); max-width: 280px; line-height: 1.6; }
+
+  /* STATUS */
+  .status {
+    padding: 12px 16px; border-radius: var(--radius); font-size: 13px;
+    display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;
+  }
+  .status.loading { background: var(--blue-light); border: 1px solid var(--blue-border); color: var(--blue); }
+  .status.error { background: var(--red-light); border: 1px solid #fecaca; color: var(--red); }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--blue-border);
+    border-top-color: var(--blue); border-radius: 50%; flex-shrink: 0;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* RESULTS */
+  .results-header { margin-bottom: 1rem; }
+  .results-header h3 { font-size: 16px; font-weight: 600; color: var(--gray-900); }
+  .results-header p { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+
+  .summary-card {
+    background: var(--blue-light); border: 1px solid var(--blue-border);
+    border-radius: var(--radius); padding: 12px 16px; margin-bottom: 1rem;
+    font-size: 13px; color: #1d4ed8; line-height: 1.6;
+  }
+
+  .counts-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .count-badge {
+    padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .count-badge.applies { background: var(--green-light); color: var(--green); }
+  .count-badge.needs { background: var(--amber-light); color: var(--amber); }
+  .count-badge.not { background: var(--gray-100); color: var(--gray-500); }
+
+  .section-label {
+    font-size: 11px; font-weight: 600; color: var(--gray-400);
+    text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 7px;
+  }
+
+  .reg-card {
+    background: var(--white); border: 1px solid var(--gray-200);
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px;
+    transition: box-shadow 0.15s;
+  }
+  .reg-card:hover { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .reg-card.applies { border-left: 3px solid var(--green); }
+  .reg-card.needs-info { border-left: 3px solid var(--amber); }
+  .reg-card.not-applies { opacity: 0.55; }
+
+  .reg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .reg-name { font-size: 13px; font-weight: 600; color: var(--gray-900); }
+  .reg-fullname { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+  .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .badge.applies { background: var(--green-light); color: var(--green); }
+  .badge.not-applies { background: var(--gray-100); color: var(--gray-500); }
+  .badge.needs-info { background: var(--amber-light); color: var(--amber); }
+
+  .reg-reason { font-size: 12px; color: var(--gray-500); line-height: 1.6; margin-top: 9px; }
+  .reg-cite { font-size: 11px; color: var(--blue); margin-top: 6px; font-family: 'Courier New', monospace; }
+
+  /* EXPORT BTN */
+  .export-btn {
+    padding: 8px 16px; font-size: 13px; font-weight: 500;
+    background: var(--gray-100); border: 1px solid var(--gray-200);
+    border-radius: 8px; cursor: pointer; color: var(--gray-700); margin-top: 12px;
+  }
+  .export-btn:hover { background: var(--gray-200); }
+
+  /* FOOTER NOTE */
+  .footer-note { font-size: 11px; color: var(--gray-400); margin-top: 1.5rem; text-align: center; line-height: 1.6; }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--gray-200); }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">EEC</div>
+  <span class="topbar-title">Kentucky Engine Regulation Checker</span>
+  <span class="topbar-sub">— Division for Air Quality</span>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR: INPUT FORM -->
+  <div class="sidebar">
+    <h2>Engine Details</h2>
+
+    <div class="field">
+      <label>Engine type *</label>
+      <select id="engineType">
+        <option value="">Select...</option>
+        <option value="CI - Compression Ignition (diesel)">CI — Compression ignition (diesel)</option>
+        <option value="SI - Natural gas / lean burn LPG">SI — Natural gas / lean burn LPG</option>
+        <option value="SI - Gasoline">SI — Gasoline</option>
+        <option value="SI - Landfill / digester gas">SI — Landfill / digester gas</option>
+        <option value="SI - Rich burn LPG">SI — Rich burn LPG</option>
+      </select>
+      <div class="err" id="e-engineType"></div>
+    </div>
+
+    <div class="field">
+      <label>Engine use *</label>
+      <select id="engineUse">
+        <option value="">Select...</option>
+        <option value="Emergency (standby)">Emergency (standby)</option>
+        <option value="Non-emergency (continuous/prime)">Non-emergency (continuous / prime)</option>
+        <option value="Fire pump">Fire pump</option>
+      </select>
+      <div class="err" id="e-engineUse"></div>
+    </div>
+
+    <div class="field">
+      <label>Rated power (HP) *</label>
+      <input type="number" id="hp" placeholder="e.g. 500" min="1" max="99999" />
+      <div class="err" id="e-hp"></div>
+    </div>
+
+    <div class="field">
+      <label>Model year *</label>
+      <input type="number" id="modelYear" placeholder="e.g. 2019" min="1970" max="2030" />
+      <div class="err" id="e-modelYear"></div>
+    </div>
+
+    <div class="field">
+      <label>Construction commenced (year) *</label>
+      <input type="number" id="constructYear" placeholder="e.g. 2019" min="1970" max="2030" />
+      <div class="hint">Year engine was ordered or installation began</div>
+      <div class="err" id="e-constructYear"></div>
+    </div>
+
+    <div class="divider"></div>
+    <h2>Source Details</h2>
+
+    <div class="field">
+      <label>Displacement (L/cylinder)</label>
+      <input type="number" id="displacement" placeholder="Leave blank if unknown" step="0.1" min="0.1" />
+      <div class="hint">Blank = assumed &lt;10 L/cylinder</div>
+    </div>
+
+    <div class="field">
+      <label>Source classification</label>
+      <select id="sourceClass">
+        <option value="Unknown / to be determined">Unknown / to be determined</option>
+        <option value="Major source (HAP ≥10 tpy single or ≥25 tpy combined)">Major source (HAP ≥10 tpy or ≥25 combined)</option>
+        <option value="Area source (below major source thresholds)">Area source (below major thresholds)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>New or existing source</label>
+      <select id="sourceAge">
+        <option value="New source">New source</option>
+        <option value="Existing source">Existing source</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Facility / source description</label>
+      <input type="text" id="facilityDesc" placeholder="e.g. Verizon cell tower, Fayette Co." />
+      <div class="hint">Optional — helps tailor the explanation</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="run-btn" id="checkBtn" onclick="runCheck()">
+      Check applicable regulations
+    </button>
+    <button class="clear-btn" onclick="clearAll()">Clear form</button>
+  </div>
+
+  <!-- MAIN PANEL: RESULTS -->
+  <div class="main" id="mainPanel">
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>Enter engine details to get started</h3>
+      <p>Fill in the engine type, use, power, and dates on the left. The tool will determine which federal and Kentucky regulations apply and why.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+// After deploying to Render, replace this URL with your actual Render backend URL
+// Example: 'https://ky-reg-checker-api.onrender.com'
+const BACKEND_URL = 'https://YOUR-RENDER-APP-NAME.onrender.com';
+
+// ── VALIDATION ───────────────────────────────────────────────────────────────
+const REQ = ['engineType','engineUse','hp','modelYear','constructYear'];
+const ERR_TEXT = {
+  engineType: 'Select an engine type',
+  engineUse: 'Select engine use',
+  hp: 'Enter rated power in HP',
+  modelYear: 'Enter model year',
+  constructYear: 'Enter construction year'
+};
+
+REQ.forEach(id => {
+  const el = document.getElementById(id);
+  ['change','input'].forEach(ev => el.addEventListener(ev, () => {
+    document.getElementById('e-' + id).textContent = '';
+  }));
+});
+
+function validate() {
+  let ok = true;
+  REQ.forEach(id => {
+    const val = document.getElementById(id).value.trim();
+    const errEl = document.getElementById('e-' + id);
+    if (!val) { errEl.textContent = ERR_TEXT[id]; ok = false; }
+    else errEl.textContent = '';
+  });
+  return ok;
+}
+
+// ── CLEAR FORM ────────────────────────────────────────────────────────────────
+function clearAll() {
+  ['engineType','engineUse','sourceClass','sourceAge'].forEach(id => document.getElementById(id).selectedIndex = 0);
+  ['hp','modelYear','constructYear','displacement','facilityDesc'].forEach(id => document.getElementById(id).value = '');
+  REQ.forEach(id => document.getElementById('e-' + id).textContent = '');
+  document.getElementById('mainPanel').innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <h3>Enter engine details to get started</h3>
+      <p>Fill in the engine type, use, power, and dates on the left.</p>
+    </div>`;
+}
+
+// ── MAIN CHECK ────────────────────────────────────────────────────────────────
+async function runCheck() {
+  if (!validate()) return;
+
+  const btn = document.getElementById('checkBtn');
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+
+  const panel = document.getElementById('mainPanel');
+  panel.innerHTML = `
+    <div class="status loading">
+      <div class="spinner"></div>
+      Analyzing regulations — this may take 15–30 seconds on first load...
+    </div>`;
+
+  const payload = {
+    engineType:    document.getElementById('engineType').value,
+    engineUse:     document.getElementById('engineUse').value,
+    hp:            document.getElementById('hp').value,
+    modelYear:     document.getElementById('modelYear').value,
+    constructYear: document.getElementById('constructYear').value,
+    displacement:  document.getElementById('displacement').value,
+    sourceClass:   document.getElementById('sourceClass').value,
+    sourceAge:     document.getElementById('sourceAge').value,
+    facilityDesc:  document.getElementById('facilityDesc').value
+  };
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      panel.innerHTML = `<div class="status error">❌ Error: ${esc(data.error || 'Unknown error')}</div>`;
+      btn.disabled = false; btn.textContent = 'Check applicable regulations'; return;
+    }
+
+    renderResults(panel, data, payload);
+  } catch (err) {
+    panel.innerHTML = `<div class="status error">❌ Could not reach the server. Make sure the backend is deployed and BACKEND_URL is set correctly.<br><br><small>${esc(err.message)}</small></div>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Check applicable regulations';
+}
+
+// ── RENDER RESULTS ────────────────────────────────────────────────────────────
+function renderResults(panel, data, payload) {
+  const regs = data.regulations || [];
+  const applies  = regs.filter(r => r.status === 'applies');
+  const needs    = regs.filter(r => r.status === 'needs-info');
+  const notApp   = regs.filter(r => r.status === 'not-applies');
+
+  const now = new Date().toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+
+  let html = `
+    <div class="results-header">
+      <h3>Regulation Determination</h3>
+      <p>${esc(payload.engineType)} · ${esc(payload.hp)} HP · ${esc(payload.engineUse)} · ${now}</p>
+    </div>`;
+
+  if (data.summary) {
+    html += `<div class="summary-card">${esc(data.summary)}</div>`;
+  }
+
+  html += `<div class="counts-row">
+    <span class="count-badge applies">✓ ${applies.length} applicable</span>
+    ${needs.length ? `<span class="count-badge needs">⚠ ${needs.length} needs info</span>` : ''}
+    <span class="count-badge not">${notApp.length} not applicable</span>
+  </div>`;
+
+  if (applies.length) {
+    html += `<div class="section-label">Applicable regulations</div>`;
+    applies.forEach(r => { html += regCard(r); });
+  }
+  if (needs.length) {
+    html += `<div class="section-label">More information needed</div>`;
+    needs.forEach(r => { html += regCard(r); });
+  }
+  if (notApp.length) {
+    html += `<div class="section-label">Does not apply</div>`;
+    notApp.forEach(r => { html += regCard(r); });
+  }
+
+  html += `<button class="export-btn" onclick="exportTxt()">Export as text for permit file</button>`;
+  html += `<div class="footer-note">Regulation logic based on 40 CFR Parts 60 &amp; 63 and 401 KAR Chapter 52 (as of June 2026).<br>Always verify determinations against official sources before finalizing permits.</div>`;
+
+  panel.innerHTML = html;
+  panel._lastData = data;
+  panel._lastPayload = payload;
+}
+
+function regCard(r) {
+  const sc = r.status === 'applies' ? 'applies' : r.status === 'needs-info' ? 'needs-info' : 'not-applies';
+  const badgeTxt = sc === 'applies' ? 'Applies' : sc === 'needs-info' ? 'More info needed' : 'Does not apply';
+  return `<div class="reg-card ${sc}">
+    <div class="reg-top">
+      <div>
+        <div class="reg-name">${esc(r.name)}</div>
+        <div class="reg-fullname">${esc(r.fullName || '')}</div>
+      </div>
+      <span class="badge ${sc}">${esc(r.badge || badgeTxt)}</span>
+    </div>
+    <div class="reg-reason">${esc(r.reason || '')}</div>
+    ${r.cite ? `<div class="reg-cite">${esc(r.cite)}</div>` : ''}
+  </div>`;
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+function exportTxt() {
+  const panel = document.getElementById('mainPanel');
+  const data = panel._lastData;
+  const payload = panel._lastPayload;
+  if (!data) return;
+
+  const now = new Date().toLocaleString();
+  let txt = `KENTUCKY ENGINE REGULATION DETERMINATION\n`;
+  txt += `Generated: ${now}\n`;
+  txt += `${'='.repeat(60)}\n\n`;
+  txt += `ENGINE SPECIFICATIONS\n`;
+  txt += `  Type:                 ${payload.engineType}\n`;
+  txt += `  Use:                  ${payload.engineUse}\n`;
+  txt += `  Rated power:          ${payload.hp} HP\n`;
+  txt += `  Model year:           ${payload.modelYear}\n`;
+  txt += `  Construction year:    ${payload.constructYear}\n`;
+  txt += `  Displacement:         ${payload.displacement || 'Not specified (<10 L/cyl assumed)'}\n`;
+  txt += `  Source classification:${payload.sourceClass}\n`;
+  txt += `  New/existing:         ${payload.sourceAge}\n`;
+  if (payload.facilityDesc) txt += `  Facility:             ${payload.facilityDesc}\n`;
+  txt += `\nSUMMARY\n${data.summary}\n\n`;
+
+  const applies = data.regulations.filter(r => r.status === 'applies');
+  const needs   = data.regulations.filter(r => r.status === 'needs-info');
+  const notApp  = data.regulations.filter(r => r.status === 'not-applies');
+
+  if (applies.length) {
+    txt += `${'='.repeat(60)}\nAPPLICABLE REGULATIONS\n${'='.repeat(60)}\n`;
+    applies.forEach(r => {
+      txt += `\n${r.name} — ${r.fullName}\nStatus: APPLIES\nReason: ${r.reason}\nCitation: ${r.cite || 'N/A'}\n`;
+    });
+  }
+  if (needs.length) {
+    txt += `\n${'='.repeat(60)}\nMORE INFORMATION NEEDED\n${'='.repeat(60)}\n`;
+    needs.forEach(r => {
+      txt += `\n${r.name} — ${r.fullName}\nStatus: MORE INFO NEEDED\nReason: ${r.reason}\nCitation: ${r.cite || 'N/A'}\n`;
+    });
+  }
+  if (notApp.length) {
+    txt += `\n${'='.repeat(60)}\nDOES NOT APPLY\n${'='.repeat(60)}\n`;
+    notApp.forEach(r => {
+      txt += `\n${r.name}\nStatus: DOES NOT APPLY\nReason: ${r.reason}\n`;
+    });
+  }
+
+  txt += `\n${'='.repeat(60)}\nNote: Verify all determinations against official regulatory sources before finalizing permits.\n`;
+
+  const blob = new Blob([txt], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `reg-check-${payload.hp}hp-${payload.modelYear}-${Date.now()}.txt`;
+  a.click();
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
