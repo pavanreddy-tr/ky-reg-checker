@@ -1,15 +1,16 @@
 {
-  "name": "ky-reg-checker-backend",
-  "version": "1.0.0",
-  "description": "Kentucky Engine Regulation Checker - Backend API",
+  "name": "eec-ai-assistant-backend",
+  "version": "2.0.0",
+  "description": "EEC AI Assistant - Complete Kentucky Air Quality Regulation Tool",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "fetch-regs": "node ../scripts/fetch-regulations.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "engines": {
     "node": ">=18.0.0"
