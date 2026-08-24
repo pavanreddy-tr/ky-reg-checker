@@ -411,13 +411,28 @@ app.get('/history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
  
-app.get('/stats', async (req, res) => {
+aapp.get('/stats', async (req, res) => {
   try {
-    const { count } = await supabase
+    const { data, error } = await supabase
       .from('regulations')
-      .select('*', { count: 'exact', head: true });
-    res.json({ regulations_in_database: count, status: 'healthy', version: '6.0' });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+      .select('id')
+      .limit(1000);
+    if (error) throw error;
+    const count = data ? data.length : 0;
+    
+    // Get exact count with a separate query
+    const { data: allData } = await supabase
+      .from('regulations')
+      .select('id', { count: 'exact' });
+    
+    res.json({ 
+      regulations_in_database: allData?.length || count, 
+      status: 'healthy', 
+      version: '6.0' 
+    });
+  } catch (err) { 
+    res.status(500).json({ error: err.message, regulations_in_database: 0 }); 
+  }
 });
  
 app.listen(PORT, () => {
