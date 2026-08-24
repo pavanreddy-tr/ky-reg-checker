@@ -1,39 +1,3 @@
-
-/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Server v10 · JS
 const express = require('express');
 const cors = require('cors');
  
