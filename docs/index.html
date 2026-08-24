@@ -6,162 +6,164 @@
 <title>EEC AI Assistant — Kentucky Division for Air Quality</title>
 <style>
   :root {
-    --blue: #1d4ed8;
-    --blue-mid: #2563eb;
-    --blue-light: #eff6ff;
-    --blue-border: #bfdbfe;
-    --green: #15803d;
-    --green-light: #dcfce7;
-    --amber: #b45309;
-    --amber-light: #fef3c7;
-    --red: #dc2626;
-    --red-light: #fef2f2;
-    --gray-50: #f9fafb;
-    --gray-100: #f3f4f6;
-    --gray-200: #e5e7eb;
-    --gray-300: #d1d5db;
-    --gray-400: #9ca3af;
-    --gray-500: #6b7280;
-    --gray-600: #4b5563;
-    --gray-700: #374151;
-    --gray-800: #1f2937;
-    --gray-900: #111827;
+    --blue: #1d4ed8; --blue-mid: #2563eb; --blue-light: #eff6ff; --blue-border: #bfdbfe;
+    --green: #15803d; --green-light: #dcfce7; --green-border: #86efac;
+    --amber: #b45309; --amber-light: #fef3c7; --amber-border: #fde68a;
+    --red: #dc2626; --red-light: #fef2f2;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb;
+    --gray-300: #d1d5db; --gray-400: #9ca3af; --gray-500: #6b7280;
+    --gray-600: #4b5563; --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
     --white: #fff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
-
-  /* TOP BAR */
+ 
   .topbar { background: var(--blue); padding: 0 1.5rem; display: flex; align-items: center; height: 52px; gap: 12px; }
   .topbar-logo { font-size: 14px; font-weight: 700; color: white; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px; }
   .topbar-title { font-size: 15px; font-weight: 500; color: white; }
   .topbar-sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-left: 2px; }
-  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .topbar-right { margin-left: auto; }
   .db-status { font-size: 11px; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; }
-
-  /* TABS */
-  .tabs { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 0 1.5rem; display: flex; gap: 0; }
+ 
+  .tabs { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 0 1.5rem; display: flex; }
   .tab { padding: 12px 16px; font-size: 13px; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab:hover { color: var(--gray-700); }
   .tab.active { color: var(--blue-mid); border-bottom-color: var(--blue-mid); }
-
-  /* LAYOUT */
+ 
   .layout { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 100px); }
   .sidebar { background: var(--white); border-right: 1px solid var(--gray-200); padding: 1.25rem; overflow-y: auto; }
   .main { padding: 1.25rem; overflow-y: auto; }
-
-  /* FORM */
+ 
   .section-title { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; margin-top: 16px; }
   .section-title:first-child { margin-top: 0; }
   .field { margin-bottom: 10px; }
   .field label { display: block; font-size: 12px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; }
-  .field select, .field input, .field textarea {
-    width: 100%; padding: 7px 10px; border: 1px solid var(--gray-300);
-    border-radius: 7px; font-size: 13px; background: var(--white);
-    color: var(--gray-900); outline: none; transition: border-color 0.15s;
-    font-family: inherit;
-  }
+  .field select, .field input, .field textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--gray-300); border-radius: 7px; font-size: 13px; background: var(--white); color: var(--gray-900); outline: none; transition: border-color 0.15s; font-family: inherit; }
   .field select:focus, .field input:focus, .field textarea:focus { border-color: var(--blue-mid); box-shadow: 0 0 0 3px rgba(37,99,235,0.08); }
-  .field textarea { resize: vertical; min-height: 70px; }
+  .field textarea { resize: vertical; min-height: 60px; }
   .field .hint { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
   .field .err { font-size: 11px; color: var(--red); margin-top: 3px; }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .divider { height: 1px; background: var(--gray-100); margin: 14px 0; }
-
-  /* BUTTONS */
+ 
+  /* Control devices */
+  .control-devices-section { margin-bottom: 10px; }
+  .device-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; position: relative; }
+  .device-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .device-label { font-size: 12px; font-weight: 600; color: var(--gray-600); }
+  .remove-device { background: none; border: none; color: var(--gray-400); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+  .remove-device:hover { background: var(--red-light); color: var(--red); }
+  .device-field { margin-bottom: 6px; }
+  .device-field label { display: block; font-size: 11px; font-weight: 500; color: var(--gray-500); margin-bottom: 3px; }
+  .device-field select, .device-field input { width: 100%; padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 12px; background: var(--white); color: var(--gray-900); outline: none; font-family: inherit; }
+  .device-field select:focus, .device-field input:focus { border-color: var(--blue-mid); }
+  .add-device-btn { width: 100%; padding: 7px; font-size: 12px; font-weight: 500; background: var(--white); color: var(--blue-mid); border: 1px dashed var(--blue-border); border-radius: 7px; cursor: pointer; margin-top: 4px; }
+  .add-device-btn:hover { background: var(--blue-light); }
+ 
+  /* Buttons */
   .run-btn { width: 100%; padding: 10px; font-size: 14px; font-weight: 600; background: var(--blue-mid); color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; margin-top: 4px; }
   .run-btn:hover { opacity: 0.88; }
   .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .sec-btn { width: 100%; padding: 8px; font-size: 12px; font-weight: 500; background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 7px; cursor: pointer; margin-top: 6px; }
   .sec-btn:hover { background: var(--gray-200); }
-
-  /* STATUS */
+ 
+  /* Status */
   .status { padding: 10px 14px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .status.loading { background: var(--blue-light); border: 1px solid var(--blue-border); color: var(--blue); }
   .status.error { background: var(--red-light); border: 1px solid #fecaca; color: var(--red); }
   .spinner { width: 14px; height: 14px; border: 2px solid var(--blue-border); border-top-color: var(--blue-mid); border-radius: 50%; flex-shrink: 0; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
-
-  /* EMPTY STATE */
+ 
+  /* Empty state */
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 350px; text-align: center; padding: 2rem; }
   .empty-icon { font-size: 44px; margin-bottom: 1rem; opacity: 0.2; }
   .empty-state h3 { font-size: 15px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
   .empty-state p { font-size: 13px; color: var(--gray-400); max-width: 300px; line-height: 1.6; }
-
-  /* RESULTS */
+ 
+  /* Results */
   .results-meta { margin-bottom: 12px; }
-  .results-meta h3 { font-size: 16px; font-weight: 600; color: var(--gray-900); }
+  .results-meta h3 { font-size: 16px; font-weight: 600; }
   .results-meta p { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
-
-  .summary-card { background: var(--blue-light); border: 1px solid var(--blue-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; font-size: 13px; color: #1e40af; line-height: 1.6; }
-
-  .info-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+ 
+  .summary-card { background: var(--blue-light); border: 1px solid var(--blue-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; font-size: 13px; color: #1e40af; line-height: 1.6; }
+ 
+  .new-existing-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+  .new-existing-card .ne-label { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+  .new-existing-card .ne-value { font-size: 12px; color: var(--gray-700); line-height: 1.5; }
+ 
+  .info-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
   .info-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 14px; }
   .info-card .label { font-size: 11px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
   .info-card .value { font-size: 13px; color: var(--gray-800); font-weight: 500; }
-  .info-card .sub { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
-
-  .counts-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .info-card .sub { font-size: 11px; color: var(--gray-500); margin-top: 3px; line-height: 1.4; }
+ 
+  .counts-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .count-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .count-badge.applies { background: var(--green-light); color: var(--green); }
   .count-badge.needs { background: var(--amber-light); color: var(--amber); }
   .count-badge.not { background: var(--gray-100); color: var(--gray-500); }
-
-  .missing-info { background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; }
-  .missing-info .mi-title { font-size: 12px; font-weight: 600; color: #854d0e; margin-bottom: 6px; }
-  .missing-info ul { list-style: none; }
-  .missing-info li { font-size: 12px; color: #92400e; padding: 1px 0; }
+ 
+  .missing-info { background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
+  .missing-info .mi-title { font-size: 12px; font-weight: 600; color: #854d0e; margin-bottom: 5px; }
+  .missing-info li { font-size: 12px; color: #92400e; padding: 1px 0; list-style: none; }
   .missing-info li::before { content: '• '; }
-
+ 
   .section-label { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 7px; }
-
+ 
   .reg-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; transition: box-shadow 0.15s; }
   .reg-card:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
   .reg-card.applies { border-left: 3px solid #16a34a; }
   .reg-card.needs-info { border-left: 3px solid #d97706; }
-  .reg-card.not-applies { opacity: 0.5; }
-
+  .reg-card.not-applies { opacity: 0.55; }
+ 
   .reg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .reg-left { flex: 1; min-width: 0; }
   .reg-name { font-size: 13px; font-weight: 600; color: var(--gray-900); }
   .reg-fullname { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
-  .reg-category { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
-
+  .reg-meta { display: flex; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
+  .reg-tag { font-size: 10px; color: var(--gray-400); background: var(--gray-100); padding: 1px 6px; border-radius: 3px; }
+  .reg-tag.new { background: #dbeafe; color: #1d4ed8; }
+  .reg-tag.existing { background: #f3e8ff; color: #7e22ce; }
+ 
   .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
   .badge.applies { background: var(--green-light); color: var(--green); }
   .badge.not-applies { background: var(--gray-100); color: var(--gray-500); }
   .badge.needs-info { background: var(--amber-light); color: var(--amber); }
-
-  .reg-reason { font-size: 12px; color: var(--gray-600); line-height: 1.55; margin-top: 8px; }
+ 
+  .reg-exemption { font-size: 11px; color: var(--gray-400); margin-top: 6px; font-style: italic; }
+  .reg-reason { font-size: 12px; color: var(--gray-600); line-height: 1.55; margin-top: 6px; }
   .reg-cite { font-size: 11px; color: var(--blue-mid); margin-top: 5px; font-family: 'Courier New', monospace; line-height: 1.5; }
   .reg-reqs { margin-top: 6px; }
-  .reg-reqs .req-title { font-size: 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .req-title { font-size: 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
   .reg-req { font-size: 11px; color: var(--gray-600); padding: 1px 0; }
   .reg-req::before { content: '→ '; color: var(--gray-400); }
+  .reg-device-note { font-size: 11px; color: #7e22ce; margin-top: 5px; background: #f3e8ff; padding: 4px 8px; border-radius: 4px; }
   .reg-link { font-size: 11px; color: var(--blue-mid); text-decoration: none; display: inline-block; margin-top: 4px; }
   .reg-link:hover { text-decoration: underline; }
-
-  /* EXPORT & ACTIONS */
+ 
+  /* CAM card */
+  .cam-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .cam-device { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-100); }
+  .cam-device:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .cam-device-name { font-size: 12px; font-weight: 600; color: var(--gray-700); margin-bottom: 4px; }
+  .cam-criterion { font-size: 11px; color: var(--gray-500); padding: 1px 0; }
+  .cam-criterion.pass { color: var(--green); }
+  .cam-criterion.fail { color: var(--red); }
+  .cam-conclusion { font-size: 11px; font-weight: 600; margin-top: 4px; }
+ 
   .action-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   .action-btn { padding: 8px 14px; font-size: 12px; font-weight: 500; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 7px; cursor: pointer; color: var(--gray-700); }
   .action-btn:hover { background: var(--gray-200); }
-
+ 
   .footer-note { font-size: 11px; color: var(--gray-400); margin-top: 1.5rem; line-height: 1.6; text-align: center; }
-
-  /* HISTORY TAB */
-  .history-list { }
+ 
+  /* History */
   .history-item { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
   .history-item:hover { border-color: var(--blue-border); }
-  .history-item .h-type { font-size: 13px; font-weight: 500; color: var(--gray-800); }
+  .history-item .h-type { font-size: 13px; font-weight: 500; }
   .history-item .h-date { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
   .history-item .h-badges { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-
-  /* DB STATUS TAB */
-  .db-panel { padding: 1rem 0; }
-  .db-stat { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px 16px; margin-bottom: 8px; }
-  .db-stat .ds-label { font-size: 12px; color: var(--gray-500); }
-  .db-stat .ds-value { font-size: 22px; font-weight: 600; color: var(--gray-900); margin-top: 2px; }
-
+ 
   @media (max-width: 768px) {
     .layout { grid-template-columns: 1fr; }
     .sidebar { border-right: none; border-bottom: 1px solid var(--gray-200); }
@@ -170,70 +172,75 @@
 </style>
 </head>
 <body>
-
+ 
 <div class="topbar">
   <span class="topbar-logo">EEC</span>
   <span class="topbar-title">AI Regulation Assistant</span>
   <span class="topbar-sub">— Kentucky Division for Air Quality</span>
-  <div class="topbar-right">
-    <span class="db-status" id="dbStatus">Connecting...</span>
-  </div>
+  <div class="topbar-right"><span class="db-status" id="dbStatus">Connecting...</span></div>
 </div>
-
+ 
 <div class="tabs">
   <div class="tab active" onclick="switchTab('checker')">Regulation Checker</div>
   <div class="tab" onclick="switchTab('history')">Past Determinations</div>
   <div class="tab" onclick="switchTab('database')">Database Status</div>
 </div>
-
-<!-- CHECKER TAB -->
+ 
 <div id="tab-checker" class="layout">
   <div class="sidebar">
-
     <div class="section-title">Equipment / Source</div>
-
+ 
     <div class="field">
       <label>Equipment category *</label>
-      <select id="equipmentCategory" onchange="updateEquipmentFields()">
+      <select id="equipmentCategory" onchange="updatePlaceholder()">
         <option value="">Select category...</option>
         <optgroup label="Combustion Equipment">
-          <option value="Stationary Engine - CI (Diesel)">Stationary Engine — CI / Diesel</option>
-          <option value="Stationary Engine - SI (Natural Gas)">Stationary Engine — SI / Natural Gas</option>
-          <option value="Stationary Engine - SI (Gasoline)">Stationary Engine — SI / Gasoline</option>
-          <option value="Stationary Engine - SI (Landfill Gas)">Stationary Engine — SI / Landfill Gas</option>
-          <option value="Industrial Boiler">Industrial / Commercial Boiler</option>
-          <option value="Utility Boiler">Utility Steam Generating Unit</option>
+          <option value="Stationary Engine - CI Diesel">Stationary Engine — CI / Diesel</option>
+          <option value="Stationary Engine - SI Natural Gas">Stationary Engine — SI / Natural Gas</option>
+          <option value="Stationary Engine - SI Gasoline">Stationary Engine — SI / Gasoline</option>
+          <option value="Stationary Engine - SI Landfill Gas">Stationary Engine — SI / Landfill Gas</option>
+          <option value="Industrial Boiler">Industrial / Commercial / Institutional Boiler</option>
+          <option value="Utility Boiler">Electric Utility Steam Generating Unit</option>
           <option value="Process Heater">Process Heater / Furnace</option>
-          <option value="Combustion Turbine">Combustion Turbine / Gas Turbine</option>
-          <option value="Incinerator">Incinerator</option>
-          <option value="Solid Waste Combustor">Solid Waste Combustor (CISWI)</option>
+          <option value="Combustion Turbine">Combustion / Gas Turbine</option>
+          <option value="Incinerator - Municipal Solid Waste">Incinerator — Municipal Solid Waste</option>
+          <option value="Incinerator - Medical Infectious Waste">Incinerator — Medical / Infectious Waste</option>
+          <option value="Incinerator - Hazardous Waste">Incinerator — Hazardous Waste</option>
+          <option value="Incinerator - Commercial Industrial Solid Waste">Incinerator — CISWI</option>
+          <option value="Incinerator - Pharmaceutical Waste">Incinerator — Pharmaceutical / Drug Waste</option>
+          <option value="Incinerator - Sewage Sludge">Incinerator — Sewage Sludge</option>
         </optgroup>
-        <optgroup label="Storage and Handling">
-          <option value="Storage Tank - Petroleum">Storage Tank — Petroleum / Volatile Liquid</option>
+        <optgroup label="Storage and Transfer">
+          <option value="Storage Tank - Petroleum Volatile Liquid">Storage Tank — Petroleum / Volatile Liquid</option>
           <option value="Storage Tank - Chemical">Storage Tank — Chemical</option>
           <option value="Bulk Liquid Terminal">Bulk Liquid Terminal</option>
-          <option value="Gasoline Dispensing">Gasoline Dispensing Facility</option>
+          <option value="Gasoline Dispensing Facility">Gasoline Dispensing Facility</option>
         </optgroup>
         <optgroup label="Industrial Processes">
-          <option value="Cement Plant">Cement Plant</option>
-          <option value="Asphalt Plant">Asphalt / Hot Mix Plant</option>
-          <option value="Crushing Screening">Crushing and Screening / Mineral Processing</option>
-          <option value="Metal Foundry">Metal Foundry / Smelter</option>
-          <option value="Coating Operation">Surface Coating Operation</option>
-          <option value="Printing Operation">Printing / Publishing Operation</option>
-          <option value="Chemical Manufacturing">Chemical Manufacturing</option>
-          <option value="Pharmaceutical">Pharmaceutical Manufacturing</option>
-          <option value="Wood Products">Wood Products / Furniture Manufacturing</option>
-          <option value="Pulp Paper">Pulp and Paper Mill</option>
-          <option value="Rubber Tire">Rubber / Tire Manufacturing</option>
+          <option value="Portland Cement Plant">Portland Cement Plant</option>
+          <option value="Asphalt Hot Mix Plant">Asphalt / Hot Mix Plant</option>
+          <option value="Crushing Screening Mineral Processing">Crushing / Screening / Mineral Processing</option>
+          <option value="Metal Foundry Smelter">Metal Foundry / Smelter</option>
+          <option value="Surface Coating Operation">Surface Coating Operation</option>
+          <option value="Printing Publishing Operation">Printing / Publishing Operation</option>
+          <option value="Chemical Manufacturing">Chemical Manufacturing / SOCMI</option>
+          <option value="Pharmaceutical Manufacturing">Pharmaceutical Manufacturing</option>
+          <option value="Wood Products Furniture">Wood Products / Furniture Manufacturing</option>
+          <option value="Pulp Paper Mill">Pulp and Paper Mill</option>
+          <option value="Rubber Tire Manufacturing">Rubber / Tire Manufacturing</option>
           <option value="Glass Manufacturing">Glass Manufacturing</option>
-          <option value="Electroplating">Electroplating / Metal Finishing</option>
-          <option value="Dry Cleaning">Dry Cleaning Facility</option>
-          <option value="Landfill">Municipal Solid Waste Landfill</option>
-          <option value="Wastewater Treatment">Wastewater Treatment Plant</option>
-          <option value="Natural Gas Processing">Natural Gas / Oil Production and Processing</option>
+          <option value="Electroplating Metal Finishing">Electroplating / Metal Finishing / Chrome</option>
+          <option value="Dry Cleaning Facility">Dry Cleaning Facility</option>
+          <option value="Solvent Cleaning Degreasing">Solvent Cleaning / Degreasing</option>
+          <option value="Landfill Municipal Solid Waste">Municipal Solid Waste Landfill</option>
+          <option value="Wastewater Treatment Plant">Wastewater Treatment / POTW</option>
+          <option value="Natural Gas Oil Production Processing">Natural Gas / Oil Production and Processing</option>
           <option value="Petroleum Refinery">Petroleum Refinery</option>
           <option value="Grain Elevator">Grain Elevator</option>
+          <option value="Lime Manufacturing">Lime Manufacturing</option>
+          <option value="Kraft Pulp Mill">Kraft Pulp Mill</option>
+          <option value="TNT Explosives Manufacturing">TNT / Explosives Manufacturing</option>
+          <option value="Paint Stripping">Paint Stripping Operation</option>
         </optgroup>
         <optgroup label="Other">
           <option value="Other">Other / Describe below</option>
@@ -241,210 +248,289 @@
       </select>
       <div class="err" id="e-equipmentCategory"></div>
     </div>
-
-    <div class="field" id="field-equipmentType">
+ 
+    <div class="field">
       <label>Equipment use / operation *</label>
-      <input type="text" id="equipmentType" placeholder="e.g. Emergency standby generator, continuous process heater..." />
+      <input type="text" id="equipmentType" placeholder="e.g. Emergency standby generator, continuous process..." />
       <div class="err" id="e-equipmentType"></div>
     </div>
-
+ 
     <div class="field">
       <label>Fuel type / process medium</label>
-      <input type="text" id="fuelType" placeholder="e.g. No. 2 diesel, natural gas, coal, solvent..." />
+      <input type="text" id="fuelType" placeholder="e.g. No. 2 diesel, natural gas, coal, waste solvent..." />
     </div>
-
+ 
     <div class="field">
       <label>Capacity / size *</label>
       <input type="text" id="capacity" placeholder="e.g. 500 HP, 50 MMBtu/hr, 100 tons/hr, 10,000 gal..." />
-      <div class="hint">Include units — HP, MMBtu/hr, tons/hr, gallons, etc.</div>
+      <div class="hint">Include units — HP, MMBtu/hr, tons/hr, gallons, MW, etc.</div>
       <div class="err" id="e-capacity"></div>
     </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>Construction / install date</label>
-        <input type="text" id="constructDate" placeholder="e.g. 2019, Jan 2020" />
-      </div>
-      <div class="field">
-        <label>Model year (if applicable)</label>
-        <input type="text" id="modelYear" placeholder="e.g. 2019" />
-      </div>
+ 
+    <div class="field">
+      <label>Construction commencement date *</label>
+      <input type="text" id="constructDate" placeholder="e.g. March 2019, 2019, January 15 2020" />
+      <div class="hint">New vs existing is auto-determined from this date for each regulation</div>
+      <div class="err" id="e-constructDate"></div>
     </div>
-
+ 
+    <div class="field">
+      <label>Model year (engines/turbines only)</label>
+      <input type="text" id="modelYear" placeholder="e.g. 2019" />
+    </div>
+ 
+    <div class="divider"></div>
+    <div class="section-title">Control Devices</div>
+ 
+    <div class="control-devices-section">
+      <div id="deviceList"></div>
+      <button class="add-device-btn" onclick="addDevice()">+ Add control device</button>
+    </div>
+ 
     <div class="divider"></div>
     <div class="section-title">Source Classification</div>
-
+ 
     <div class="field">
-      <label>Source type (HAP classification)</label>
+      <label>HAP source classification</label>
       <select id="sourceClass">
         <option value="Unknown / to be determined">Unknown / to be determined</option>
-        <option value="Major source for HAP (PTE ≥10 tpy single HAP or ≥25 tpy combined HAP)">Major source — HAP (≥10 tpy single or ≥25 tpy combined)</option>
+        <option value="Major source for HAP (PTE ≥10 tpy single HAP or ≥25 tpy combined)">Major source — HAP (≥10 tpy single or ≥25 combined)</option>
         <option value="Area source for HAP (below major source thresholds)">Area source — HAP (below major thresholds)</option>
       </select>
     </div>
-
+ 
     <div class="field">
-      <label>Regulated pollutant classification</label>
+      <label>Criteria pollutant classification</label>
       <select id="pollutantClass">
         <option value="Unknown / to be determined">Unknown / to be determined</option>
-        <option value="Major source for criteria pollutants (PTE ≥100 tpy)">Major source — criteria pollutants (PTE ≥100 tpy)</option>
-        <option value="Minor source for criteria pollutants (PTE <100 tpy)">Minor source — criteria pollutants (PTE &lt;100 tpy)</option>
+        <option value="Major source for criteria pollutants (PTE ≥100 tpy any regulated pollutant)">Major source — criteria pollutants (PTE ≥100 tpy)</option>
+        <option value="Minor source for criteria pollutants (PTE below 100 tpy)">Minor source — criteria pollutants (PTE &lt;100 tpy)</option>
       </select>
     </div>
-
-    <div class="field-row">
-      <div class="field">
-        <label>New or existing source</label>
-        <select id="sourceAge">
-          <option value="New source">New source</option>
-          <option value="Existing source">Existing source</option>
-          <option value="Modified source">Modified source</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Control device installed?</label>
-        <select id="controlDevice">
-          <option value="None / not applicable">None / not applicable</option>
-          <option value="Catalytic oxidizer">Catalytic oxidizer</option>
-          <option value="Thermal oxidizer">Thermal oxidizer</option>
-          <option value="Diesel oxidation catalyst">Diesel oxidation catalyst</option>
-          <option value="SCR">SCR (NOx)</option>
-          <option value="Baghouse">Baghouse</option>
-          <option value="ESP">Electrostatic precipitator</option>
-          <option value="Scrubber">Wet scrubber</option>
-          <option value="Carbon adsorber">Carbon adsorber</option>
-          <option value="Other control device">Other control device</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="divider"></div>
-    <div class="section-title">Additional Details</div>
-
+ 
     <div class="field">
       <label>SIC code (if known)</label>
-      <input type="text" id="sicCode" placeholder="e.g. 4899 — Communications Services NEC" />
+      <input type="text" id="sicCode" placeholder="e.g. 4899, 2911, 3559..." />
     </div>
-
+ 
     <div class="field">
-      <label>Facility / source description</label>
-      <textarea id="description" placeholder="Add any additional details about the source, process, operating conditions, or specific questions..."></textarea>
+      <label>Additional details / questions</label>
+      <textarea id="description" placeholder="Any additional context, specific questions, or unusual aspects of this source..."></textarea>
     </div>
-
-    <button class="run-btn" id="checkBtn" onclick="runCheck()">
-      Determine applicable regulations
-    </button>
+ 
+    <button class="run-btn" id="checkBtn" onclick="runCheck()">Determine applicable regulations</button>
     <button class="sec-btn" onclick="clearForm()">Clear form</button>
-
   </div>
-
-  <!-- MAIN RESULTS PANEL -->
+ 
   <div class="main" id="mainPanel">
     <div class="empty-state">
       <div class="empty-icon">⚖️</div>
       <h3>Enter source details to get started</h3>
-      <p>Select equipment category, describe the source, and enter capacity and dates. The tool will search all applicable federal and Kentucky regulations and determine which apply.</p>
+      <p>Select equipment category, describe the source, enter capacity and construction date. New vs existing source is determined automatically for each regulation.</p>
     </div>
   </div>
 </div>
-
-<!-- HISTORY TAB -->
-<div id="tab-history" style="display:none; padding: 1.5rem;">
-  <h2 style="font-size:16px; font-weight:600; margin-bottom:1rem;">Past Determinations</h2>
-  <div id="historyList"><div style="color:var(--gray-400); font-size:13px;">Loading history...</div></div>
+ 
+<div id="tab-history" style="display:none; padding:1.5rem;">
+  <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;">Past Determinations</h2>
+  <div id="historyList"><div style="color:var(--gray-400);font-size:13px;">Loading...</div></div>
 </div>
-
-<!-- DATABASE TAB -->
-<div id="tab-database" style="display:none; padding: 1.5rem; max-width: 600px;">
-  <h2 style="font-size:16px; font-weight:600; margin-bottom:1rem;">Regulation Database Status</h2>
-  <div id="dbPanel"><div style="color:var(--gray-400); font-size:13px;">Loading...</div></div>
-  <div style="margin-top:1.5rem; padding:14px 16px; background:var(--blue-light); border:1px solid var(--blue-border); border-radius:10px;">
-    <div style="font-size:13px; font-weight:600; color:var(--blue); margin-bottom:8px;">How to populate the regulation database</div>
-    <div style="font-size:12px; color:#1e40af; line-height:1.6;">
-      The database needs to be populated once with all regulation text. Run the fetch script:<br><br>
-      <code style="background:rgba(0,0,0,0.08); padding:2px 6px; border-radius:4px; font-size:11px;">node scripts/fetch-regulations.js</code><br><br>
-      This downloads all 40 CFR Parts 60, 61, 63 subparts and all 401 KAR chapters automatically from eCFR and Kentucky LRC. Takes about 10–15 minutes to complete.
+ 
+<div id="tab-database" style="display:none;padding:1.5rem;max-width:600px;">
+  <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;">Regulation Database Status</h2>
+  <div id="dbPanel"><div style="color:var(--gray-400);font-size:13px;">Loading...</div></div>
+  <div style="margin-top:1.5rem;padding:14px 16px;background:var(--blue-light);border:1px solid var(--blue-border);border-radius:10px;">
+    <div style="font-size:13px;font-weight:600;color:var(--blue);margin-bottom:6px;">Database contents</div>
+    <div style="font-size:12px;color:#1e40af;line-height:1.7;">
+      ✓ 40 CFR Part 60 — All NSPS subparts (73 subparts)<br>
+      ✓ 40 CFR Part 61 — NESHAP older standards (29 subparts)<br>
+      ✓ 40 CFR Part 62 — Federal plans (66 subparts)<br>
+      ✓ 40 CFR Part 63 — MACT/NESHAP (hundreds of subparts)<br>
+      ✓ 40 CFR Part 64 — CAM<br>
+      ✓ 40 CFR Part 70 — Title V Operating Permits<br>
+      ✓ 40 CFR Parts 72, 75, 98 — Acid rain, CEMS, GHG reporting<br>
+      ✓ 401 KAR Chapters 50–65 — Kentucky Air Quality
     </div>
   </div>
 </div>
-
+ 
 <script>
 const BACKEND_URL = 'https://ky-reg-checker-api.onrender.com';
-
+ 
+// Device management
+let deviceCount = 0;
+ 
+function addDevice() {
+  deviceCount++;
+  const id = deviceCount;
+  const deviceHTML = `
+    <div class="device-card" id="device-${id}">
+      <div class="device-header">
+        <span class="device-label">Control Device ${id}</span>
+        <button class="remove-device" onclick="removeDevice(${id})" title="Remove">×</button>
+      </div>
+      <div class="device-field">
+        <label>Device type</label>
+        <select id="devType-${id}">
+          <option value="">Select type...</option>
+          <optgroup label="Particulate Control">
+            <option value="Baghouse / Fabric Filter">Baghouse / Fabric Filter</option>
+            <option value="Electrostatic Precipitator (ESP)">Electrostatic Precipitator (ESP)</option>
+            <option value="Cyclone / Mechanical Collector">Cyclone / Mechanical Collector</option>
+            <option value="Wet Scrubber - Venturi">Wet Scrubber — Venturi</option>
+          </optgroup>
+          <optgroup label="VOC / HAP Control">
+            <option value="Thermal Oxidizer (TO)">Thermal Oxidizer (TO)</option>
+            <option value="Catalytic Oxidizer (CO)">Catalytic Oxidizer (CO)</option>
+            <option value="Regenerative Thermal Oxidizer (RTO)">Regenerative Thermal Oxidizer (RTO)</option>
+            <option value="Carbon Adsorber">Carbon Adsorber</option>
+            <option value="Condenser">Condenser</option>
+            <option value="Flare">Flare</option>
+          </optgroup>
+          <optgroup label="NOx Control">
+            <option value="Selective Catalytic Reduction (SCR)">Selective Catalytic Reduction (SCR)</option>
+            <option value="Selective Non-Catalytic Reduction (SNCR)">Selective Non-Catalytic Reduction (SNCR)</option>
+            <option value="Low NOx Burners (LNB)">Low NOx Burners (LNB)</option>
+            <option value="Flue Gas Recirculation (FGR)">Flue Gas Recirculation (FGR)</option>
+          </optgroup>
+          <optgroup label="SO2 / Acid Gas Control">
+            <option value="Wet Scrubber - SO2">Wet Scrubber — SO2 / FGD</option>
+            <option value="Dry Scrubber / Lime Injection">Dry Scrubber / Lime Injection</option>
+            <option value="Acid Gas Scrubber">Acid Gas Scrubber</option>
+          </optgroup>
+          <optgroup label="Engine-Specific">
+            <option value="Diesel Oxidation Catalyst (DOC)">Diesel Oxidation Catalyst (DOC)</option>
+            <option value="Diesel Particulate Filter (DPF)">Diesel Particulate Filter (DPF)</option>
+            <option value="Three-Way Catalyst (TWC)">Three-Way Catalyst (TWC)</option>
+            <option value="Oxidation Catalyst">Oxidation Catalyst</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="Biofilter">Biofilter</option>
+            <option value="Absorber">Absorber</option>
+            <option value="Other control device">Other (describe below)</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="device-field">
+        <label>Control efficiency (if known)</label>
+        <input type="text" id="devEff-${id}" placeholder="e.g. 99% PM, 95% VOC, 85% NOx" />
+      </div>
+      <div class="device-field">
+        <label>Pollutants controlled</label>
+        <input type="text" id="devPoll-${id}" placeholder="e.g. PM, NOx, SO2, VOC, HAP" />
+      </div>
+    </div>`;
+  document.getElementById('deviceList').insertAdjacentHTML('beforeend', deviceHTML);
+}
+ 
+function removeDevice(id) {
+  const el = document.getElementById('device-' + id);
+  if (el) el.remove();
+}
+ 
+function getDevices() {
+  const devices = [];
+  document.querySelectorAll('.device-card').forEach(card => {
+    const id = card.id.replace('device-', '');
+    const type = document.getElementById('devType-' + id)?.value;
+    if (type) {
+      devices.push({
+        type: type,
+        efficiency: document.getElementById('devEff-' + id)?.value || '',
+        pollutants: document.getElementById('devPoll-' + id)?.value || ''
+      });
+    }
+  });
+  return devices;
+}
+ 
 // Tab switching
 function switchTab(tab) {
   ['checker','history','database'].forEach(t => {
-    document.getElementById('tab-' + t).style.display = t === tab ? (t === 'checker' ? 'grid' : 'block') : 'none';
-    document.querySelectorAll('.tab')[['checker','history','database'].indexOf(t)].classList.toggle('active', t === tab);
+    const el = document.getElementById('tab-' + t);
+    if (el) el.style.display = t === tab ? (t === 'checker' ? 'grid' : 'block') : 'none';
+    document.querySelectorAll('.tab')[['checker','history','database'].indexOf(t)]?.classList.toggle('active', t === tab);
   });
   if (tab === 'history') loadHistory();
   if (tab === 'database') loadDbStatus();
 }
-
-// DB status check on load
+ 
 async function checkDbStatus() {
   try {
     const resp = await fetch(BACKEND_URL + '/stats');
     const data = await resp.json();
     const el = document.getElementById('dbStatus');
-    if (data.regulations_in_database > 0) {
-      el.textContent = `📚 ${data.regulations_in_database} regulations in database`;
-    } else {
-      el.textContent = '⚠️ Database empty — run fetch script';
-    }
-  } catch (e) {
-    document.getElementById('dbStatus').textContent = '🔴 Backend offline';
-  }
+    el.textContent = data.regulations_in_database > 0
+      ? `📚 ${data.regulations_in_database} regulations`
+      : '⚠️ Database empty';
+  } catch (e) { document.getElementById('dbStatus').textContent = '🔴 Backend offline'; }
 }
-
+ 
 async function loadDbStatus() {
   const panel = document.getElementById('dbPanel');
   try {
     const resp = await fetch(BACKEND_URL + '/stats');
     const data = await resp.json();
     panel.innerHTML = `
-      <div class="db-stat"><div class="ds-label">Regulations in database</div><div class="ds-value">${data.regulations_in_database || 0}</div></div>
-      <div class="db-stat"><div class="ds-label">API status</div><div class="ds-value" style="font-size:16px; color:var(--green)">✓ ${data.status || 'healthy'}</div></div>`;
+      <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:14px 16px;margin-bottom:8px;">
+        <div style="font-size:12px;color:var(--gray-500);">Total regulations stored</div>
+        <div style="font-size:24px;font-weight:600;">${data.regulations_in_database || 0}</div>
+      </div>
+      <div style="background:var(--white);border:1px solid var(--gray-200);border-radius:8px;padding:14px 16px;">
+        <div style="font-size:12px;color:var(--gray-500);">API status</div>
+        <div style="font-size:16px;font-weight:600;color:var(--green);">✓ ${data.status || 'healthy'} — v${data.version || '3.0'}</div>
+      </div>`;
   } catch(e) {
     panel.innerHTML = '<div style="color:var(--red);font-size:13px;">Could not connect to backend.</div>';
   }
 }
-
+ 
 async function loadHistory() {
   const list = document.getElementById('historyList');
   try {
     const resp = await fetch(BACKEND_URL + '/history');
     const data = await resp.json();
-    if (!data.length) {
-      list.innerHTML = '<div style="color:var(--gray-400);font-size:13px;">No past determinations yet.</div>';
-      return;
-    }
+    if (!data.length) { list.innerHTML = '<div style="color:var(--gray-400);font-size:13px;">No past determinations yet.</div>'; return; }
     list.innerHTML = data.map(d => {
       const applies = (d.results?.regulations || []).filter(r => r.status === 'applies').length;
-      const date = new Date(d.created_at).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit'});
-      return `<div class="history-item" onclick="showHistoryItem(${d.id})">
-        <div class="h-type">${esc(d.equipment_type || 'Unknown equipment')}</div>
+      const date = new Date(d.created_at).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      return `<div class="history-item">
+        <div class="h-type">${esc(d.equipment_type || 'Unknown')}</div>
         <div class="h-date">${date}</div>
-        <div class="h-badges">
-          <span class="count-badge applies">${applies} applicable</span>
-        </div>
+        <div class="h-badges"><span class="count-badge applies">${applies} applicable</span></div>
       </div>`;
     }).join('');
-  } catch(e) {
-    list.innerHTML = '<div style="color:var(--red);font-size:13px;">Could not load history.</div>';
-  }
+  } catch(e) { list.innerHTML = '<div style="color:var(--red);font-size:13px;">Could not load history.</div>'; }
 }
-
-// VALIDATION
-const REQ_FIELDS = {
-  equipmentCategory: 'Select an equipment category',
-  equipmentType: 'Describe the equipment use or operation',
-  capacity: 'Enter capacity or size with units'
-};
-
+ 
+function updatePlaceholder() {
+  const cat = document.getElementById('equipmentCategory').value;
+  const el = document.getElementById('equipmentType');
+  const map = {
+    'Stationary Engine - CI Diesel': 'e.g. Emergency standby, non-emergency continuous, fire pump',
+    'Stationary Engine - SI Natural Gas': 'e.g. Emergency standby generator, continuous prime power',
+    'Industrial Boiler': 'e.g. Package boiler, field-erected, process steam, space heating',
+    'Utility Boiler': 'e.g. Base load steam generation, combined cycle',
+    'Combustion Turbine': 'e.g. Simple cycle peaking, combined cycle base load',
+    'Incinerator - Medical Infectious Waste': 'e.g. On-site medical waste disposal, controlled air incinerator',
+    'Incinerator - Pharmaceutical Waste': 'e.g. Drug takeback incineration, expired pharmaceutical disposal',
+    'Surface Coating Operation': 'e.g. Spray painting metal parts, powder coating line, dip coating',
+    'Chemical Manufacturing': 'e.g. Batch reactor, distillation column, solvent recovery',
+    'TNT Explosives Manufacturing': 'e.g. Nitration process, TNT purification, waste treatment',
+  };
+  if (map[cat]) el.placeholder = map[cat];
+}
+ 
+// Validation
+const REQ = { equipmentCategory:'Select equipment category', equipmentType:'Describe the use or operation', capacity:'Enter capacity with units', constructDate:'Enter construction commencement date' };
+Object.keys(REQ).forEach(id => {
+  const el = document.getElementById(id);
+  if (el) ['change','input'].forEach(ev => el.addEventListener(ev, () => { const e = document.getElementById('e-'+id); if(e && el.value) e.textContent=''; }));
+});
+ 
 function validate() {
   let ok = true;
-  Object.entries(REQ_FIELDS).forEach(([id, msg]) => {
+  Object.entries(REQ).forEach(([id, msg]) => {
     const val = document.getElementById(id)?.value?.trim();
     const errEl = document.getElementById('e-' + id);
     if (!val) { if(errEl) errEl.textContent = msg; ok = false; }
@@ -452,64 +538,25 @@ function validate() {
   });
   return ok;
 }
-
-Object.keys(REQ_FIELDS).forEach(id => {
-  const el = document.getElementById(id);
-  if (el) ['change','input'].forEach(ev => el.addEventListener(ev, () => {
-    const errEl = document.getElementById('e-' + id);
-    if (errEl && el.value) errEl.textContent = '';
-  }));
-});
-
-// UPDATE fields based on category selection
-function updateEquipmentFields() {
-  const cat = document.getElementById('equipmentCategory').value;
-  const typeInput = document.getElementById('equipmentType');
-  const placeholders = {
-    'Stationary Engine - CI (Diesel)': 'e.g. Emergency standby, non-emergency continuous, fire pump',
-    'Stationary Engine - SI (Natural Gas)': 'e.g. Emergency standby generator, continuous prime power',
-    'Industrial Boiler': 'e.g. Package boiler, field-erected boiler, process steam generation',
-    'Combustion Turbine': 'e.g. Simple cycle peaking turbine, combined cycle base load',
-    'Storage Tank - Petroleum': 'e.g. Fixed roof crude oil storage, floating roof gasoline tank',
-    'Coating Operation': 'e.g. Spray painting of metal parts, powder coating line',
-    'Crushing Screening': 'e.g. Primary crusher, secondary screening, conveyor transfer points',
-  };
-  typeInput.placeholder = placeholders[cat] || 'Describe the specific operation or use...';
-}
-
-// CLEAR FORM
+ 
 function clearForm() {
-  ['equipmentCategory','sourceClass','pollutantClass','sourceAge','controlDevice'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.selectedIndex = 0;
-  });
-  ['equipmentType','fuelType','capacity','constructDate','modelYear','sicCode','description'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  Object.keys(REQ_FIELDS).forEach(id => {
-    const errEl = document.getElementById('e-' + id);
-    if (errEl) errEl.textContent = '';
-  });
-  document.getElementById('mainPanel').innerHTML = `
-    <div class="empty-state">
-      <div class="empty-icon">⚖️</div>
-      <h3>Enter source details to get started</h3>
-      <p>Select equipment category, describe the source, and enter capacity and dates.</p>
-    </div>`;
+  ['equipmentCategory','sourceClass','pollutantClass'].forEach(id => { const el=document.getElementById(id); if(el) el.selectedIndex=0; });
+  ['equipmentType','fuelType','capacity','constructDate','modelYear','sicCode','description'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  Object.keys(REQ).forEach(id => { const e=document.getElementById('e-'+id); if(e) e.textContent=''; });
+  document.getElementById('deviceList').innerHTML = '';
+  deviceCount = 0;
+  document.getElementById('mainPanel').innerHTML = `<div class="empty-state"><div class="empty-icon">⚖️</div><h3>Enter source details to get started</h3><p>Fill in equipment details and construction date. New vs existing is auto-determined for each regulation.</p></div>`;
 }
-
-// MAIN CHECK
+ 
 async function runCheck() {
   if (!validate()) return;
-
   const btn = document.getElementById('checkBtn');
-  btn.disabled = true;
-  btn.textContent = 'Analyzing regulations...';
-
+  btn.disabled = true; btn.textContent = 'Analyzing...';
+ 
   const panel = document.getElementById('mainPanel');
-  panel.innerHTML = `<div class="status loading"><div class="spinner"></div>Searching regulation database and analyzing applicability — please wait 15–30 seconds...</div>`;
-
+  panel.innerHTML = `<div class="status loading"><div class="spinner"></div>Searching regulation database and analyzing applicability (exemptions checked first)...</div>`;
+ 
+  const devices = getDevices();
   const payload = {
     equipmentCategory: document.getElementById('equipmentCategory').value,
     equipmentType:     document.getElementById('equipmentType').value,
@@ -519,192 +566,172 @@ async function runCheck() {
     modelYear:         document.getElementById('modelYear').value,
     sourceClass:       document.getElementById('sourceClass').value,
     pollutantClass:    document.getElementById('pollutantClass').value,
-    sourceAge:         document.getElementById('sourceAge').value,
-    controlDevice:     document.getElementById('controlDevice').value,
     sicCode:           document.getElementById('sicCode').value,
-    description:       document.getElementById('description').value
+    description:       document.getElementById('description').value,
+    controlDevices:    devices
   };
-
+ 
   try {
     const resp = await fetch(BACKEND_URL + '/check', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
     const data = await resp.json();
-
-    if (!resp.ok) {
-      panel.innerHTML = `<div class="status error">❌ ${esc(data.error || 'Unknown error')}</div>`;
-      btn.disabled = false; btn.textContent = 'Determine applicable regulations'; return;
-    }
-
+    if (!resp.ok) { panel.innerHTML = `<div class="status error">❌ ${esc(data.error || 'Unknown error')}</div>`; btn.disabled=false; btn.textContent='Determine applicable regulations'; return; }
     renderResults(panel, data, payload);
-  } catch (err) {
-    panel.innerHTML = `<div class="status error">❌ Could not reach server. It may be waking up — wait 30 seconds and try again.<br><small>${esc(err.message)}</small></div>`;
+  } catch(err) {
+    panel.innerHTML = `<div class="status error">❌ Could not reach server. Wait 30 seconds and try again.<br><small>${esc(err.message)}</small></div>`;
   }
-
-  btn.disabled = false;
-  btn.textContent = 'Determine applicable regulations';
+  btn.disabled=false; btn.textContent='Determine applicable regulations';
 }
-
+ 
 function renderResults(panel, data, payload) {
   const regs = data.regulations || [];
   const applies = regs.filter(r => r.status === 'applies');
   const needs   = regs.filter(r => r.status === 'needs-info');
   const notApp  = regs.filter(r => r.status === 'not-applies');
-  const now = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-
-  let html = `<div class="results-meta">
-    <h3>Regulation Determination</h3>
-    <p>${esc(payload.equipmentCategory)} · ${esc(payload.capacity)} · ${now} · ${data.regulationsSearched || 0} regulations searched</p>
-  </div>`;
-
+  const now = new Date().toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
+  const deviceCount = payload.controlDevices?.length || 0;
+ 
+  let html = `<div class="results-meta"><h3>Regulation Determination</h3><p>${esc(payload.equipmentCategory)} · ${esc(payload.capacity)} · ${now} · ${data.regulationsSearched || 0} regulations searched${deviceCount ? ` · ${deviceCount} control device${deviceCount>1?'s':''}` : ''}</p></div>`;
+ 
   if (data.summary) html += `<div class="summary-card">${esc(data.summary)}</div>`;
-
-  // Permit type and CAM
+ 
+  if (data.newExistingDetermination) {
+    html += `<div class="new-existing-card"><div class="ne-label">New / Existing Determination (auto)</div><div class="ne-value">${esc(data.newExistingDetermination)}</div></div>`;
+  }
+ 
   html += `<div class="info-row">`;
   if (data.permitType) {
-    html += `<div class="info-card">
-      <div class="label">Permit type</div>
-      <div class="value">${esc(data.permitType.determination || 'Unknown')}</div>
-      <div class="sub">${esc(data.permitType.reason || '')}</div>
-    </div>`;
+    html += `<div class="info-card"><div class="label">Permit type</div><div class="value">${esc(data.permitType.determination||'Unknown')}</div><div class="sub">${esc(data.permitType.reason||'')}</div></div>`;
   }
   if (data.camApplicability) {
-    const camColor = data.camApplicability.status === 'applies' ? 'var(--green)' : data.camApplicability.status === 'needs-info' ? 'var(--amber)' : 'var(--gray-500)';
-    html += `<div class="info-card">
-      <div class="label">CAM Applicability (40 CFR 64)</div>
-      <div class="value" style="color:${camColor}">${data.camApplicability.status === 'applies' ? '✓ Applies' : data.camApplicability.status === 'needs-info' ? '⚠ Needs info' : '✗ Does not apply'}</div>
-      <div class="sub">${esc(data.camApplicability.reason || '')}</div>
-    </div>`;
+    const camColor = data.camApplicability.status==='applies'?'var(--green)':data.camApplicability.status==='needs-info'?'var(--amber)':'var(--gray-500)';
+    html += `<div class="info-card"><div class="label">CAM (40 CFR 64)</div><div class="value" style="color:${camColor}">${data.camApplicability.status==='applies'?'✓ Applies':data.camApplicability.status==='needs-info'?'⚠ Needs info':'✗ Does not apply'}</div><div class="sub">${esc(data.camApplicability.reason||'')}</div></div>`;
   }
   html += `</div>`;
-
-  // Missing info
-  if (data.missingInfo && data.missingInfo.length > 0) {
-    html += `<div class="missing-info">
-      <div class="mi-title">⚠ Additional information needed for complete determination:</div>
-      <ul>${data.missingInfo.map(m => `<li>${esc(m)}</li>`).join('')}</ul>
-    </div>`;
+ 
+  // CAM per-device detail
+  if (data.camApplicability?.devices?.length > 0) {
+    html += `<div class="cam-card"><div style="font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:8px;">CAM Analysis by Control Device</div>`;
+    data.camApplicability.devices.forEach(d => {
+      html += `<div class="cam-device">
+        <div class="cam-device-name">${esc(d.device||'Device')}</div>
+        <div class="cam-criterion">${esc('1. ' + (d.criterion1||''))}</div>
+        <div class="cam-criterion">${esc('2. ' + (d.criterion2||''))}</div>
+        <div class="cam-criterion">${esc('3. ' + (d.criterion3||''))}</div>
+        <div class="cam-conclusion" style="color:${d.conclusion?.includes('applies')&&!d.conclusion?.includes('not')?'var(--green)':'var(--gray-500)'}">${esc(d.conclusion||'')}</div>
+      </div>`;
+    });
+    html += `</div>`;
   }
-
+ 
+  if (data.missingInfo?.length > 0) {
+    html += `<div class="missing-info"><div class="mi-title">⚠ Additional information needed:</div><ul>${data.missingInfo.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`;
+  }
+ 
   html += `<div class="counts-row">
     <span class="count-badge applies">✓ ${applies.length} applicable</span>
-    ${needs.length ? `<span class="count-badge needs">⚠ ${needs.length} needs info</span>` : ''}
+    ${needs.length?`<span class="count-badge needs">⚠ ${needs.length} needs info</span>`:''}
     <span class="count-badge not">${notApp.length} not applicable</span>
   </div>`;
-
-  if (applies.length) {
-    html += `<div class="section-label">Applicable regulations (${applies.length})</div>`;
-    applies.forEach(r => { html += regCard(r); });
-  }
-  if (needs.length) {
-    html += `<div class="section-label">More information needed (${needs.length})</div>`;
-    needs.forEach(r => { html += regCard(r); });
-  }
-  if (notApp.length) {
-    html += `<div class="section-label">Does not apply (${notApp.length})</div>`;
-    notApp.forEach(r => { html += regCard(r); });
-  }
-
+ 
+  if (applies.length) { html += `<div class="section-label">Applicable regulations (${applies.length})</div>`; applies.forEach(r => { html += regCard(r); }); }
+  if (needs.length) { html += `<div class="section-label">More information needed (${needs.length})</div>`; needs.forEach(r => { html += regCard(r); }); }
+  if (notApp.length) { html += `<div class="section-label">Does not apply (${notApp.length})</div>`; notApp.forEach(r => { html += regCard(r); }); }
+ 
   html += `<div class="action-row">
-    <button class="action-btn" onclick="exportTxt()">Export as text file</button>
-    <button class="action-btn" onclick="copyToClipboard()">Copy to clipboard</button>
+    <button class="action-btn" onclick="exportTxt()">Export as text</button>
+    <button class="action-btn" onclick="copyClip()">Copy to clipboard</button>
   </div>`;
-
-  html += `<div class="footer-note">Regulation database sourced from eCFR (ecfr.gov) and Kentucky LRC. Always verify determinations against official current sources before finalizing permit decisions.</div>`;
-
+  html += `<div class="footer-note">Regulation database sourced from eCFR (ecfr.gov) and Kentucky LRC. Exemptions checked before applicability. New/existing determined automatically from construction date vs each regulation's cutoff.<br>Always verify against current official sources before finalizing permits.</div>`;
+ 
   panel.innerHTML = html;
   panel._lastData = data;
   panel._lastPayload = payload;
 }
-
+ 
 function regCard(r) {
-  const sc = r.status === 'applies' ? 'applies' : r.status === 'needs-info' ? 'needs-info' : 'not-applies';
-  const badgeTxt = sc === 'applies' ? 'Applies' : sc === 'needs-info' ? 'More info needed' : 'Does not apply';
+  const sc = r.status==='applies'?'applies':r.status==='needs-info'?'needs-info':'not-applies';
+  const badgeTxt = sc==='applies'?'Applies':sc==='needs-info'?'More info needed':'Does not apply';
+  const neClass = r.newExisting?.toLowerCase().includes('new')?'new':r.newExisting?.toLowerCase().includes('existing')?'existing':'';
   let reqs = '';
-  if (r.keyRequirements && r.keyRequirements.length > 0) {
-    reqs = `<div class="reg-reqs"><div class="req-title">Key requirements</div>${r.keyRequirements.map(req => `<div class="reg-req">${esc(req)}</div>`).join('')}</div>`;
-  }
+  if (r.keyRequirements?.length) reqs = `<div class="reg-reqs"><div class="req-title">Key requirements</div>${r.keyRequirements.map(req=>`<div class="reg-req">${esc(req)}</div>`).join('')}</div>`;
   return `<div class="reg-card ${sc}">
     <div class="reg-top">
       <div class="reg-left">
         <div class="reg-name">${esc(r.name)}</div>
-        <div class="reg-fullname">${esc(r.fullName || '')}</div>
-        <div class="reg-category">${esc(r.category || '')}</div>
+        <div class="reg-fullname">${esc(r.fullName||'')}</div>
+        <div class="reg-meta">
+          ${r.category?`<span class="reg-tag">${esc(r.category)}</span>`:''}
+          ${r.newExisting?`<span class="reg-tag ${neClass}">${esc(r.newExisting)}</span>`:''}
+        </div>
       </div>
-      <span class="badge ${sc}">${esc(r.badge || badgeTxt)}</span>
+      <span class="badge ${sc}">${esc(r.badge||badgeTxt)}</span>
     </div>
-    <div class="reg-reason">${esc(r.reason || '')}</div>
-    ${r.cite ? `<div class="reg-cite">${esc(r.cite)}</div>` : ''}
+    ${r.exemptionChecked?`<div class="reg-exemption">Exemptions checked: ${esc(r.exemptionChecked)}</div>`:''}
+    <div class="reg-reason">${esc(r.reason||'')}</div>
+    ${r.cite?`<div class="reg-cite">${esc(r.cite)}</div>`:''}
     ${reqs}
-    ${r.url ? `<a href="${esc(r.url)}" target="_blank" class="reg-link">View regulation ↗</a>` : ''}
+    ${r.controlDeviceNotes?`<div class="reg-device-note">Control device: ${esc(r.controlDeviceNotes)}</div>`:''}
+    ${r.url?`<a href="${esc(r.url)}" target="_blank" class="reg-link">View regulation ↗</a>`:''}
   </div>`;
 }
-
+ 
 function exportTxt() {
   const panel = document.getElementById('mainPanel');
-  const data = panel._lastData;
-  const payload = panel._lastPayload;
+  const data = panel._lastData; const payload = panel._lastPayload;
   if (!data) return;
-
   const now = new Date().toLocaleString();
-  let txt = `KENTUCKY EEC — AIR QUALITY REGULATION DETERMINATION\n`;
-  txt += `Generated: ${now}\n${'='.repeat(65)}\n\n`;
+  let txt = `KENTUCKY EEC — AIR QUALITY REGULATION DETERMINATION\nGenerated: ${now}\n${'='.repeat(65)}\n\n`;
   txt += `SOURCE/EQUIPMENT DETAILS\n`;
-  Object.entries(payload).forEach(([k,v]) => { if(v) txt += `  ${k}: ${v}\n`; });
+  Object.entries(payload).forEach(([k,v]) => {
+    if (k === 'controlDevices' && Array.isArray(v)) {
+      txt += `  Control devices:\n`;
+      v.forEach((d,i) => txt += `    Device ${i+1}: ${d.type}${d.efficiency?' | '+d.efficiency:''}${d.pollutants?' | '+d.pollutants:''}\n`);
+    } else if (v && typeof v === 'string') {
+      txt += `  ${k}: ${v}\n`;
+    }
+  });
   txt += `\nSUMMARY\n${data.summary}\n`;
-
+  txt += `\nNEW/EXISTING DETERMINATION\n${data.newExistingDetermination}\n`;
   if (data.permitType) txt += `\nPERMIT TYPE: ${data.permitType.determination}\n${data.permitType.reason}\n`;
   if (data.camApplicability) txt += `\nCAM APPLICABILITY: ${data.camApplicability.status}\n${data.camApplicability.reason}\n`;
-
   const regs = data.regulations || [];
   ['applies','needs-info','not-applies'].forEach(status => {
     const filtered = regs.filter(r => r.status === status);
     if (!filtered.length) return;
-    const label = status === 'applies' ? 'APPLICABLE REGULATIONS' : status === 'needs-info' ? 'MORE INFORMATION NEEDED' : 'DOES NOT APPLY';
+    const label = status==='applies'?'APPLICABLE':status==='needs-info'?'MORE INFO NEEDED':'DOES NOT APPLY';
     txt += `\n${'='.repeat(65)}\n${label}\n${'='.repeat(65)}\n`;
     filtered.forEach(r => {
-      txt += `\n${r.name} — ${r.fullName || ''}\n`;
-      txt += `Status: ${r.badge || r.status}\n`;
-      txt += `Reason: ${r.reason || ''}\n`;
-      txt += `Citation: ${r.cite || 'N/A'}\n`;
-      if (r.keyRequirements?.length) txt += `Key requirements:\n${r.keyRequirements.map(req => '  → ' + req).join('\n')}\n`;
+      txt += `\n${r.name} — ${r.fullName||''}\n`;
+      txt += `Status: ${r.badge||r.status}\n`;
+      if (r.newExisting) txt += `New/Existing: ${r.newExisting}\n`;
+      if (r.exemptionChecked) txt += `Exemptions: ${r.exemptionChecked}\n`;
+      txt += `Reason: ${r.reason||''}\n`;
+      txt += `Citation: ${r.cite||'N/A'}\n`;
+      if (r.keyRequirements?.length) txt += `Key requirements:\n${r.keyRequirements.map(req=>'  → '+req).join('\n')}\n`;
+      if (r.controlDeviceNotes) txt += `Control device notes: ${r.controlDeviceNotes}\n`;
     });
   });
-
-  txt += `\n${'='.repeat(65)}\nVerify all determinations against official current regulatory sources.\n`;
-
-  const blob = new Blob([txt], { type: 'text/plain' });
+  txt += `\n${'='.repeat(65)}\nVerify all determinations against current official regulatory sources.\n`;
+  const blob = new Blob([txt], {type:'text/plain'});
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `reg-determination-${Date.now()}.txt`;
-  a.click();
+  a.href = URL.createObjectURL(blob); a.download = `reg-determination-${Date.now()}.txt`; a.click();
 }
-
-function copyToClipboard() {
+ 
+function copyClip() {
   const panel = document.getElementById('mainPanel');
   const data = panel._lastData;
   if (!data) return;
-  const text = data.summary + '\n\n' + (data.regulations || [])
-    .filter(r => r.status === 'applies')
-    .map(r => `${r.name}: ${r.reason}\nCitation: ${r.cite}`)
-    .join('\n\n');
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = event.target;
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy to clipboard'; }, 2000);
-  });
+  const text = data.summary + '\n\n' + (data.regulations||[]).filter(r=>r.status==='applies').map(r=>`${r.name}: ${r.reason}\nCitation: ${r.cite}`).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => { const btn=event.target; btn.textContent='Copied!'; setTimeout(()=>{btn.textContent='Copy to clipboard';},2000); });
 }
-
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// Init
+ 
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+ 
 checkDbStatus();
 </script>
 </body>
 </html>
-
+ 
