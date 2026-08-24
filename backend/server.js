@@ -11,56 +11,38 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
  
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
- 
-app.get('/', (req, res) => {
-  res.json({ status: 'EEC AI Assistant API running', version: '6.0' });
+// Initialize Supabase without realtime to avoid WebSocket issues
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false },
+  global: { fetch: fetch }
 });
  
-// ─── UNIVERSAL SEARCH ─────────────────────────────────────────────────────────
-// Step 1: Ask Gemini to identify relevant regulation keywords for ANY equipment
-async function getRegulationKeywords(body) {
+app.get('/', (req, res) => {
+  res.json({ status: 'EEC AI Assistant API running', version: '7.0' });
+});
+ 
+// ── STATS ──────────────────────────────────────────────────────────────────
+app.get('/stats', async (req, res) => {
   try {
-    const prompt = `You are a Kentucky air quality engineer. For this equipment, list the most likely
-applicable federal and state air quality regulation identifiers.
- 
-Equipment: ${body.equipmentCategory || ''}
-Use/Operation: ${body.equipmentType || ''}
-Fuel: ${body.fuelType || ''}
-Capacity: ${body.capacity || ''}
-Description: ${body.description || ''}
- 
-List the most likely applicable regulations as short search terms.
-Respond ONLY with JSON array of strings, nothing else:
-["search term 1", "search term 2", ...]
- 
-Include: specific subpart names, equipment type keywords, pollutant keywords.
-Example for a boiler: ["boiler industrial Subpart Db", "boiler Subpart Dc", "NESHAP DDDDD boiler major", "JJJJJJ boiler area source", "401 KAR 59 indirect heat exchanger", "boiler PM NOx SO2"]
-Limit to 10 most relevant terms.`;
- 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 500, responseMimeType: 'application/json' }
-        })
-      }
-    );
- 
-    const data = await response.json();
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-    const cleaned = rawText.replace(/```json/g,'').replace(/```/g,'').trim();
-    const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    console.error('Keyword generation error:', e.message);
-    return [];
+    const { data, error } = await supabase
+      .from('regulations')
+      .select('id');
+    if (error) {
+      console.error('Stats error:', error);
+      return res.status(500).json({ error: error.message, regulations_in_database: 0 });
+    }
+    res.json({
+      regulations_in_database: data ? data.length : 0,
+      status: 'healthy',
+      version: '7.0'
+    });
+  } catch (err) {
+    console.error('Stats catch:', err);
+    res.status(500).json({ error: err.message, regulations_in_database: 0 });
   }
-}
+});
  
+// ── EMBEDDING ─────────────────────────────────────────────────────────────
 async function generateEmbedding(text) {
   try {
     const response = await fetch(
@@ -79,6 +61,46 @@ async function generateEmbedding(text) {
   } catch (err) { return null; }
 }
  
+// ── AI KEYWORD GENERATION ─────────────────────────────────────────────────
+// Ask Gemini what regulations to search for — works for ANY equipment type
+async function getRegulationKeywords(body) {
+  try {
+    const prompt = `You are a Kentucky air quality engineer. For this equipment, list the most likely applicable federal and state air quality regulation identifiers as short search keywords.
+ 
+Equipment: ${body.equipmentCategory || ''}
+Use: ${body.equipmentType || ''}
+Fuel: ${body.fuelType || ''}
+Capacity: ${body.capacity || ''}
+Description: ${body.description || ''}
+ 
+Respond ONLY with a JSON array of 8-10 short search strings. Each string should be 2-5 words that would match a regulation title or equipment tag in a database.
+ 
+Example for a boiler: ["boiler Subpart Db", "boiler Subpart Dc", "NESHAP DDDDD boiler major", "boiler JJJJJJ area", "indirect heat exchanger Kentucky", "boiler NOx PM SO2"]
+Example for a dry cleaner: ["perchloroethylene dry cleaning", "NESHAP Subpart M", "dry cleaning HAP", "401 KAR process operation"]`;
+ 
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0, maxOutputTokens: 300, responseMimeType: 'application/json' }
+        })
+      }
+    );
+    const data = await response.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+    const cleaned = raw.replace(/```json/g,'').replace(/```/g,'').trim();
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.error('Keyword gen error:', e.message);
+    return [];
+  }
+}
+ 
+// ── UNIVERSAL SEARCH ──────────────────────────────────────────────────────
 async function searchRegulations(body, limit = 35) {
   const seen = new Set();
   const results = [];
@@ -90,74 +112,60 @@ async function searchRegulations(body, limit = 35) {
     });
   };
  
-  // ── METHOD 1: Gemini identifies the right regulation keywords ──────────────
-  // This works for ANY equipment type — Gemini knows what regulations apply
+  // Step 1: AI generates relevant keywords for this equipment type
   const aiKeywords = await getRegulationKeywords(body);
-  console.log('AI-suggested keywords:', aiKeywords);
+  console.log('AI keywords:', aiKeywords);
  
+  // Step 2: Search by title using each keyword
   for (const keyword of aiKeywords) {
-    try {
-      // Title search
-      const words = keyword.split(' ').filter(w => w.length > 3);
-      for (const word of words.slice(0, 2)) {
-        const { data } = await supabase
+    const words = keyword.split(' ').filter(w => w.length > 3);
+    for (const word of words.slice(0, 2)) {
+      try {
+        const { data, error } = await supabase
           .from('regulations')
           .select('id, source, part, subpart, section, title, content, url, equipment_tags')
           .ilike('title', `%${word}%`)
-          .limit(6);
-        addResults(data);
-      }
- 
-      // Keyword search function
-      const { data } = await supabase.rpc('keyword_search_regulations', {
-        search_terms: keyword.split(' ').slice(0, 5).join(' '),
-        result_limit: 8
-      });
-      addResults(data);
-    } catch (e) {}
- 
+          .limit(8);
+        if (!error) addResults(data);
+      } catch (e) {}
+    }
     if (results.length >= limit) break;
   }
  
-  // ── METHOD 2: Tag search using equipment words ─────────────────────────────
-  const equipWords = [
-    body.equipmentCategory,
-    body.equipmentType,
-    body.fuelType
-  ].filter(Boolean).join(' ').toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  // Step 3: Search by equipment words in title and tags
+  const allWords = [body.equipmentCategory, body.equipmentType, body.fuelType]
+    .filter(Boolean).join(' ').split(/\s+/)
+    .filter(w => w.length > 3)
+    .map(w => w.toLowerCase());
  
-  for (const word of [...new Set(equipWords)].slice(0, 8)) {
+  for (const word of [...new Set(allWords)].slice(0, 6)) {
     try {
-      // Search in title
       const { data: titleData } = await supabase
         .from('regulations')
         .select('id, source, part, subpart, section, title, content, url, equipment_tags')
         .ilike('title', `%${word}%`)
         .limit(5);
       addResults(titleData);
- 
-      // Search in equipment_tags
-      const { data: tagData } = await supabase
-        .from('regulations')
-        .select('id, source, part, subpart, section, title, content, url, equipment_tags')
-        .contains('equipment_tags', [word])
-        .limit(5);
-      addResults(tagData);
     } catch (e) {}
- 
     if (results.length >= limit) break;
   }
  
-  // ── METHOD 3: Semantic embedding search ───────────────────────────────────
-  const embedQuery = [
-    body.equipmentCategory,
-    body.equipmentType,
-    body.fuelType,
-    body.description,
-    'air quality regulation Kentucky federal'
-  ].filter(Boolean).join(' ');
+  // Step 4: Keyword search function
+  const kwQuery = [body.equipmentCategory, body.fuelType].filter(Boolean).join(' ');
+  if (kwQuery) {
+    try {
+      const { data } = await supabase.rpc('keyword_search_regulations', {
+        search_terms: kwQuery.split(' ').slice(0, 4).join(' '),
+        result_limit: 10
+      });
+      addResults(data);
+    } catch (e) {}
+  }
  
+  // Step 5: Semantic search
   try {
+    const embedQuery = [body.equipmentCategory, body.equipmentType, body.fuelType, 'air quality regulation']
+      .filter(Boolean).join(' ');
     const embedding = await generateEmbedding(embedQuery);
     if (embedding) {
       const { data } = await supabase.rpc('search_regulations', {
@@ -169,20 +177,20 @@ async function searchRegulations(body, limit = 35) {
     }
   } catch (e) {}
  
-  // ── METHOD 4: Always include Kentucky regulations ──────────────────────────
+  // Step 6: Always include all Kentucky regulations
   try {
     const { data } = await supabase
       .from('regulations')
       .select('id, source, part, subpart, section, title, content, url, equipment_tags')
-      .eq('source', 'kentucky')
-      .limit(15);
+      .eq('source', 'kentucky');
     addResults(data);
   } catch (e) {}
  
-  console.log(`Total regulations found: ${results.length}`);
+  console.log(`Search complete: ${results.length} regulations found`);
   return results.slice(0, limit);
 }
  
+// ── CONTROL DEVICE CONTEXT ────────────────────────────────────────────────
 function buildControlDeviceContext(controlDevices) {
   if (!controlDevices || controlDevices.length === 0) return 'None installed.';
   return controlDevices.map((d, i) =>
@@ -190,6 +198,7 @@ function buildControlDeviceContext(controlDevices) {
   ).join('\n');
 }
  
+// ── MAIN CHECK ENDPOINT ───────────────────────────────────────────────────
 app.post('/check', async (req, res) => {
   if (!GEMINI_API_KEY) return res.status(500).json({ error: 'API key not configured.' });
  
@@ -207,7 +216,7 @@ app.post('/check', async (req, res) => {
             ? `40 CFR Part ${r.part}${r.subpart ? ' Subpart ' + r.subpart : ''}`
             : r.part}\nURL: ${r.url || 'N/A'}\nTags: ${(r.equipment_tags || []).join(', ')}\n${(r.content || '').slice(0, 1200)}\n`
         ).join('\n---\n')
-      : 'No database results. Use regulatory knowledge.';
+      : 'No database results. Use your full regulatory knowledge.';
  
     const controlDeviceContext = buildControlDeviceContext(body.controlDevices);
     const hasControlDevices = body.controlDevices && body.controlDevices.length > 0;
@@ -235,121 +244,123 @@ SOURCE DETAILS:
 ${equipDetails}
  
 =====================================================================
-MANDATORY ANALYSIS ORDER
+MANDATORY ANALYSIS ORDER — FOLLOW EXACTLY
 =====================================================================
  
 STEP 1 — EXEMPTIONS FIRST (NON-NEGOTIABLE)
-Check ALL exemptions before applicability.
-Unknown key trigger → "needs-info" NOT "applies".
+For every regulation: check ALL exemptions before applicability.
+Unknown key exemption trigger → "needs-info" NOT "applies".
  
 STEP 2 — AUTO-DETERMINE NEW vs EXISTING
 Construction date: ${body.constructDate || 'NOT PROVIDED'}
+Apply each regulation's own cutoff independently.
  
 Key cutoffs (40 CFR 60): D=Aug17'71, Da=Sep18'78, Db=Jun19'84, Dc=Jun9'89,
 E=Aug17'71, Ea=Dec20'89, Eb=Sep20'94, Ec=Jun20'96, F=Aug17'71, GG=Oct3'77,
 IIII=Jul11'05, JJJJ=Jun12'06, KKKK=Feb18'05, CCCC=Nov30'99, WWW=May30'91,
-OOO=Apr22'08, OOOO=Aug23'11, Kb=Jul23'84, BB=Sep24'76, BBa=Mar23'90
+OOO=Apr22'08, OOOO=Aug23'11, Kb=Jul23'84, BB=Sep24'76, BBa=Mar23'90,
+VV=Jan5'81, VVa=Nov7'06, RRR=Jun29'90, NNN=Jun29'90, QQQ=Jun29'90
  
 Key cutoffs (40 CFR 63): ZZZZ=Jun12'06, YYYY=Jan14'03, DDDDD=Jun4'10,
 JJJJJJ=Jun4'10, UUUUU=May3'11, S=Apr15'98, M=Dec9'91, N=Jan25'95,
-T=Jul15'94, CC=Aug18'95, EEE=Jun19'96, LLL=Jun16'08, HHHHHH=Jan9'08
+T=Jul15'94, CC=Aug18'95, EEE=Jun19'96, LLL=Jun16'08, HHHHHH=Jan9'08,
+FFFF=Apr4'02, VVVVVV=Oct6'08
  
 Kentucky: 401 KAR 59=new (after Jul2'75), 401 KAR 61=existing (before Jul2'75)
  
 STEP 3 — APPLICABILITY (after exemptions and new/existing confirmed)
- 
-STEP 4 — REQUIREMENTS
+STEP 4 — REQUIREMENTS (only for applicable regulations)
  
 =====================================================================
 KEY EXEMPTION RULES
 =====================================================================
  
-40 CFR 63 Subpart S: ONLY chemical pulping (kraft/sulfite/soda/semi-chem).
-Mechanical/recycled/paper-only → not-applies. Unknown type → needs-info.
- 
-40 CFR 60 Subpart Dc: 10-100 MMBtu/hr only. Gas-fired exempt from SO2/PM limits.
-40 CFR 60 Subpart Db: >100 MMBtu/hr only.
-40 CFR 63 Subpart DDDDD: major HAP sources only. Unknown status → needs-info.
-40 CFR 63 Subpart JJJJJJ: area HAP sources only. Unknown status → needs-info.
-40 CFR 60 Subpart IIII: CI engines only, after Jul11'05.
-40 CFR 60 Subpart JJJJ: SI engines only, after Jun12'06.
-40 CFR 63 Subpart ZZZZ: area CI<300HP or SI<500HP → annual inspection only.
-40 CFR 63 Subpart EEE: ONLY RCRA hazardous waste. Non-hazardous → CISWI (CCCC).
-401 KAR 59: does NOT apply to engines/turbines (covered by federal standards).
-  DOES apply to boilers, indirect heat exchangers, process units, kilns, dryers.
-401 KAR 63 opacity: applies to boilers/process/incinerators. NOT cited for engines.
- 
-=====================================================================
-NSR/PSD — ALWAYS EVALUATE FOR EVERY SOURCE
-=====================================================================
-PSD: new/modified major source (≥100 tpy listed, ≥250 tpy unlisted) in attainment area.
-Nonattainment NSR: new/modified major in nonattainment area (Kentucky: ozone, PM2.5).
-Minor NSR: below major but subject to applicable federal requirements.
-Unknown PTE → needs-info. Major source confirmed → PSD likely applies.
+Subpart S: ONLY chemical pulping. Unknown type → needs-info.
+Subpart Dc: 10-100 MMBtu/hr only. Gas-fired exempt from SO2/PM limits.
+Subpart Db: >100 MMBtu/hr only.
+Subpart DDDDD: major HAP sources only. Unknown → needs-info.
+Subpart JJJJJJ: area HAP sources only. Unknown → needs-info.
+Subpart IIII: CI engines only, after Jul11'05.
+Subpart JJJJ: SI engines only, after Jun12'06.
+Subpart ZZZZ: area CI<300HP or SI<500HP → annual inspection only.
+Subpart EEE: ONLY RCRA hazardous waste. Non-hazardous → CISWI.
+Subpart CCCC: non-hazardous commercial/industrial solid waste only.
+Subpart FFFF (MON): organic chemical manufacturing at MAJOR sources only.
+Subpart VVVVVV (CMAS): chemical manufacturing at AREA sources only.
+Subpart VVa/VV: SOCMI equipment leaks — check if product on 40 CFR 60.489 list.
+Subpart RRR: SOCMI reactor processes — batch reactors may be exempt.
+401 KAR 59: does NOT apply to engines/turbines. DOES apply to boilers,
+  process heaters, kilns, dryers, chemical process units, coating lines.
+401 KAR 63 opacity: boilers/process sources. NOT cited for engines.
  
 =====================================================================
-CAM (40 CFR Part 64) — ALL THREE CRITERIA PER DEVICE
+NSR/PSD — ALWAYS EVALUATE
 =====================================================================
-1. Subject to numeric emission limit for regulated pollutant?
-2. Uses add-on control device to comply with that limit?
-3. Pre-control PTE > 100 tpy for that pollutant?
-ALL THREE yes → CAM applies. Any unknown → needs-info.
-${!hasControlDevices ? 'No control devices installed → CAM not applicable (Criterion 2 fails).' : ''}
+PSD: new/modified major source (≥100 tpy listed, ≥250 tpy unlisted) in attainment.
+Nonattainment NSR: new/modified major in nonattainment area.
+Minor NSR: below major thresholds, subject to applicable requirements.
+Unknown PTE → needs-info.
  
 =====================================================================
-SCOPE — BE THOROUGH FOR THIS EQUIPMENT TYPE
+CAM (40 CFR Part 64) — PER DEVICE PER POLLUTANT
 =====================================================================
-Based on the database regulations retrieved AND your regulatory knowledge,
-identify ALL potentially applicable regulations for this specific equipment.
-Do not limit yourself to only what was retrieved — use the database as context
-but apply your full knowledge of air quality regulations for this equipment category.
-If you know a regulation likely applies that isn't in the retrieved set, include it.
+All three must be yes: (1) numeric emission limit, (2) add-on control device,
+(3) pre-control PTE >100 tpy. Any unknown → needs-info.
+${!hasControlDevices ? 'No control devices → CAM not applicable.' : ''}
+ 
+=====================================================================
+BE THOROUGH — USE DATABASE + YOUR KNOWLEDGE
+=====================================================================
+Use the retrieved database regulations as context AND your full knowledge
+of 40 CFR and 401 KAR to identify all potentially applicable regulations.
+If a regulation clearly applies based on your knowledge but isn't in the
+retrieved set, include it anyway.
  
 Respond ONLY with valid JSON:
 {
-  "summary": "3-4 sentences specific to this source covering key applicable regs, new/existing status, most important actions",
-  "newExistingDetermination": "Per-regulation new/existing conclusions with cutoff dates cited",
+  "summary": "3-4 sentences specific to this source",
+  "newExistingDetermination": "Per-regulation conclusions with cutoff dates",
   "dataQuality": "complete|partial|insufficient",
-  "missingInfo": ["Specific missing item and exactly why it is needed"],
+  "missingInfo": ["item and why"],
   "regulations": [
     {
       "id": "unique-id",
-      "name": "Regulation name e.g. 40 CFR 60 Subpart Dc",
-      "fullName": "Full descriptive name",
+      "name": "Regulation name",
+      "fullName": "Full name",
       "category": "Federal NSPS|Federal NESHAP|Federal NSR/PSD|Federal Other|Kentucky State",
       "status": "applies|not-applies|needs-info",
       "badge": "Applies|Does not apply|More info needed",
       "newExisting": "New source|Existing source|N/A|Needs construction date",
-      "exemptionChecked": "Each exemption checked and the result — be specific",
-      "reason": "2-3 sentences: exemption result + new/existing + specific source characteristics",
-      "cite": "Specific section citations with brief explanation",
-      "keyRequirements": ["Requirement 1", "Requirement 2", "Requirement 3"],
-      "controlDeviceNotes": "How each installed device affects this specific regulation",
-      "url": "Regulation URL if available"
+      "exemptionChecked": "Each exemption checked and result",
+      "reason": "2-3 sentences: exemption + new/existing + source specifics",
+      "cite": "Specific citations with explanation",
+      "keyRequirements": ["Requirement 1", "Requirement 2"],
+      "controlDeviceNotes": "How each device affects this regulation",
+      "url": "URL if available"
     }
   ],
   "nsrPsd": {
     "psdStatus": "applies|not-applies|needs-info",
-    "psdReason": "Explanation with PTE thresholds and attainment status",
+    "psdReason": "Explanation with thresholds",
     "nonattainmentStatus": "applies|not-applies|needs-info",
-    "nonattainmentReason": "Explanation referencing Kentucky nonattainment designations",
+    "nonattainmentReason": "Explanation",
     "minorNsrStatus": "applies|not-applies|needs-info",
-    "minorNsrReason": "Explanation for minor source permit path",
+    "minorNsrReason": "Explanation",
     "cite": "401 KAR 55:005, 401 KAR 55:010, 40 CFR 52.21"
   },
   "permitType": {
     "determination": "Registration (401 KAR 52:070)|State Origin Permit (401 KAR 52:040)|Conditional Major|Title V (401 KAR 52:020)|No permit required|Needs more info",
-    "reason": "Explanation referencing PTE thresholds and applicable requirements"
+    "reason": "Explanation with thresholds"
   },
   "camApplicability": {
     "status": "applies|not-applies|needs-info",
     "devices": [
       {
-        "device": "Device name and pollutant being evaluated",
-        "criterion1": "Numeric emission limit? Yes/No — cite the specific limit and regulation",
-        "criterion2": "Add-on control device used to comply? Yes/No — explain",
-        "criterion3": "Pre-control PTE > 100 tpy? Yes/No/Unknown — explain",
-        "conclusion": "CAM applies/not-applies/needs-info — reason"
+        "device": "Device name and pollutant",
+        "criterion1": "Numeric limit? Yes/No — cite limit",
+        "criterion2": "Add-on control? Yes/No",
+        "criterion3": "Pre-control PTE >100 tpy? Yes/No/Unknown",
+        "conclusion": "CAM applies/not-applies/needs-info"
       }
     ],
     "reason": "Overall CAM conclusion"
@@ -378,7 +389,7 @@ Order: applies first, needs-info second, not-applies last.`;
     const cleaned = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
     const start = cleaned.indexOf('{');
     const end = cleaned.lastIndexOf('}');
-    if (start === -1 || end === -1) return res.status(500).json({ error: 'No JSON. Raw: ' + rawText.slice(0,300) });
+    if (start === -1 || end === -1) return res.status(500).json({ error: 'No JSON. Raw: ' + rawText.slice(0, 300) });
  
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
  
@@ -399,6 +410,7 @@ Order: applies first, needs-info second, not-applies last.`;
   }
 });
  
+// ── HISTORY ───────────────────────────────────────────────────────────────
 app.get('/history', async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -411,31 +423,7 @@ app.get('/history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
  
-app.get('/stats', async (req, res) => {
-  try {
-    const { data, error } = await supabase
-      .from('regulations')
-      .select('id')
-      .limit(1000);
-    if (error) throw error;
-    const count = data ? data.length : 0;
-    
-    // Get exact count with a separate query
-    const { data: allData } = await supabase
-      .from('regulations')
-      .select('id', { count: 'exact' });
-    
-    res.json({ 
-      regulations_in_database: allData?.length || count, 
-      status: 'healthy', 
-      version: '6.0' 
-    });
-  } catch (err) { 
-    res.status(500).json({ error: err.message, regulations_in_database: 0 }); 
-  }
-});
- 
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v6.0 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v7.0 running on port ${PORT}`);
 });
  
