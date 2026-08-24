@@ -411,7 +411,7 @@ app.get('/history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
  
-aapp.get('/stats', async (req, res) => {
+app.get('/stats', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('regulations')
