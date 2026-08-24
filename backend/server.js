@@ -1,3 +1,39 @@
+
+/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Server v10 · JS
 const express = require('express');
 const cors = require('cors');
  
@@ -73,7 +109,7 @@ async function supabaseRpc(fn, params) {
  
 // ── HEALTH CHECK ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
-  res.json({ status: 'EEC AI Assistant API running', version: '9.0' });
+  res.json({ status: 'EEC AI Assistant API running', version: '10.0' });
 });
  
 // ── STATS ─────────────────────────────────────────────────────────────────
@@ -81,7 +117,7 @@ app.get('/stats', async (req, res) => {
   try {
     const count = await supabaseCount('regulations');
     console.log('Stats count:', count);
-    res.json({ regulations_in_database: count, status: 'healthy', version: '9.0' });
+    res.json({ regulations_in_database: count, status: 'healthy', version: '10.0' });
   } catch (err) {
     console.error('Stats error:', err.message);
     // Return a response even on error so frontend shows something useful
@@ -299,6 +335,31 @@ Subpart RRR: SOCMI reactors — batch reactors exempt per §60.700(c)(1).
   coating lines, chemical reactors — anything that converts raw materials to products.
 401 KAR 63: opacity applies broadly. NOT separately cited for engines.
  
+40 CFR Part 68 RMP (Risk Management Program):
+Applies if facility has regulated substance above threshold quantity:
+Ammonia (anhydrous) 10000 lb, Chlorine 2500 lb, HF 1000 lb,
+Flammables (propane/butane) 10000 lb, many others in 40 CFR 68.130.
+Common sources: chemical plants, ammonia refrigeration, water treatment,
+pulp mills, refineries, fertilizer plants, cold storage warehouses.
+Program 1 (no offsite impact), Program 2, or Program 3 (PSM facilities).
+If facility handles large quantities of listed chemicals → check RMP.
+ 
+40 CFR Part 98 GHG Mandatory Reporting:
+Applies if facility emits 25000 metric tons CO2e or more per year.
+Subpart C covers stationary combustion (boilers, turbines, engines, heaters).
+Common sources exceeding threshold: boilers over 250 MMBtu/hr continuous,
+large turbines, cement kilns, lime kilns, glass furnaces, refineries,
+chemical plants, landfills, iron/steel mills, pulp/paper mills, aluminum smelters.
+If large combustion source or major industrial process → evaluate GHG threshold.
+ 
+40 CFR Part 82 Ozone Protection/Refrigerants:
+Applies to ANY source using CFC, HCFC, or HFC refrigerants.
+Subpart F: venting prohibited, EPA-certified technicians required,
+recovery/recycling required for all servicing, recordkeeping required.
+Common sources: HVAC chillers, industrial refrigeration, cold storage,
+commercial refrigeration, data centers, supermarkets.
+No size threshold — applies to any refrigerant use.
+ 
 =====================================================================
 NSR/PSD — ALWAYS EVALUATE FOR EVERY SOURCE
 =====================================================================
@@ -430,7 +491,7 @@ Order: applies first, needs-info second, not-applies last.`;
 });
  
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v9.0 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v10.0 running on port ${PORT}`);
   console.log(`Supabase URL: ${SUPABASE_URL ? 'SET' : 'MISSING'}`);
   console.log(`Supabase Key: ${SUPABASE_KEY ? 'SET' : 'MISSING'}`);
   console.log(`Gemini Key: ${GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
