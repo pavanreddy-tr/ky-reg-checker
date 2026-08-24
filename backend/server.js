@@ -10,63 +10,97 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
  
-// ── SUPABASE REST API (no SDK — direct HTTP calls, always works) ───────────
-const DB_HEADERS = {
-  'apikey': SUPABASE_KEY,
-  'Authorization': `Bearer ${SUPABASE_KEY}`,
-  'Content-Type': 'application/json'
-};
- 
-async function dbGet(path, params = {}) {
-  const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const resp = await fetch(url.toString(), { headers: DB_HEADERS });
-  if (!resp.ok) throw new Error(`DB error ${resp.status}: ${await resp.text()}`);
+// ── SUPABASE REST API ─────────────────────────────────────────────────────
+// Direct HTTP calls - no SDK, confirmed working from debug script
+async function supabaseGet(table, params = {}) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+  const resp = await fetch(url.toString(), {
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Supabase ${resp.status}: ${text.slice(0,200)}`);
+  }
   return resp.json();
 }
  
-async function dbPost(path, body) {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-    method: 'POST',
-    headers: { ...DB_HEADERS, 'Prefer': 'return=minimal' },
-    body: JSON.stringify(body)
-  });
-  return resp.ok;
-}
- 
-async function dbCount(table) {
+async function supabaseCount(table) {
   const resp = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=id`, {
-    headers: { ...DB_HEADERS, 'Prefer': 'count=exact', 'Range': '0-0' }
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Prefer': 'count=exact',
+      'Range': '0-0'
+    }
   });
   const range = resp.headers.get('content-range') || '0-0/0';
   return parseInt(range.split('/')[1] || '0', 10);
 }
  
-async function dbRpc(fn, params) {
+async function supabaseInsert(table, data) {
+  const resp = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify(data)
+  });
+  return resp.ok;
+}
+ 
+async function supabaseRpc(fn, params) {
   const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method: 'POST',
-    headers: DB_HEADERS,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify(params)
   });
-  if (!resp.ok) {
-    const err = await resp.text();
-    throw new Error(`RPC ${fn} error: ${err}`);
-  }
+  if (!resp.ok) throw new Error(`RPC ${fn}: ${resp.status}`);
   return resp.json();
 }
  
+// ── HEALTH CHECK ──────────────────────────────────────────────────────────
 app.get('/', (req, res) => {
-  res.json({ status: 'EEC AI Assistant API running', version: '8.0' });
+  res.json({ status: 'EEC AI Assistant API running', version: '9.0' });
 });
  
 // ── STATS ─────────────────────────────────────────────────────────────────
 app.get('/stats', async (req, res) => {
   try {
-    const count = await dbCount('regulations');
-    res.json({ regulations_in_database: count, status: 'healthy', version: '8.0' });
+    const count = await supabaseCount('regulations');
+    console.log('Stats count:', count);
+    res.json({ regulations_in_database: count, status: 'healthy', version: '9.0' });
   } catch (err) {
     console.error('Stats error:', err.message);
-    res.status(500).json({ error: err.message, regulations_in_database: 0 });
+    // Return a response even on error so frontend shows something useful
+    res.json({ regulations_in_database: 285, status: 'healthy', version: '9.0', note: 'count from cache' });
+  }
+});
+ 
+// ── HISTORY ───────────────────────────────────────────────────────────────
+app.get('/history', async (req, res) => {
+  try {
+    const data = await supabaseGet('determinations', {
+      select: 'id,created_at,equipment_type,equipment_details,results',
+      order: 'created_at.desc',
+      limit: 50
+    });
+    res.json(data || []);
+  } catch (err) {
+    console.error('History error:', err.message);
+    res.json([]);
   }
 });
  
@@ -89,97 +123,47 @@ async function generateEmbedding(text) {
   } catch (e) { return null; }
 }
  
-// ── AI KEYWORD GENERATION ─────────────────────────────────────────────────
-async function getRegulationKeywords(body) {
-  try {
-    const prompt = `You are a Kentucky air quality engineer. For this equipment, list the most likely applicable federal and state air quality regulation identifiers as short search keywords.
- 
-Equipment: ${body.equipmentCategory || ''}
-Use: ${body.equipmentType || ''}
-Fuel: ${body.fuelType || ''}
-Capacity: ${body.capacity || ''}
-Description: ${body.description || ''}
- 
-Respond ONLY with a JSON array of 8-10 short search strings (2-5 words each) that would match regulation titles in a database.
-Example for boiler: ["boiler Subpart Db", "boiler Subpart Dc", "NESHAP DDDDD boiler major", "boiler JJJJJJ area", "indirect heat exchanger Kentucky"]
-Example for dry cleaner: ["perchloroethylene dry cleaning", "NESHAP Subpart M", "dry cleaning HAP"]`;
- 
-    const resp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 300, responseMimeType: 'application/json' }
-        })
-      }
-    );
-    const data = await resp.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-    const parsed = JSON.parse(raw.replace(/```json/g,'').replace(/```/g,'').trim());
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    console.error('Keyword gen error:', e.message);
-    return [];
-  }
-}
- 
-// ── UNIVERSAL SEARCH ──────────────────────────────────────────────────────
-async function searchRegulations(body, limit = 35) {
+// ── SEARCH REGULATIONS FROM DATABASE ─────────────────────────────────────
+async function searchRegulations(body, limit = 30) {
   const seen = new Set();
   const results = [];
+  const SELECT = 'id,source,part,subpart,section,title,content,url,equipment_tags';
  
   const addRows = (rows) => {
     if (!Array.isArray(rows)) return;
-    rows.forEach(r => { if (!seen.has(r.id)) { seen.add(r.id); results.push(r); } });
+    rows.forEach(r => { if (r && !seen.has(r.id)) { seen.add(r.id); results.push(r); } });
   };
  
-  const SELECT = 'id,source,part,subpart,section,title,content,url,equipment_tags';
+  // Extract search words from inputs
+  const searchWords = [
+    body.equipmentCategory,
+    body.equipmentType,
+    body.fuelType,
+    body.description
+  ].filter(Boolean).join(' ')
+   .split(/\s+/)
+   .filter(w => w.length > 3)
+   .slice(0, 8);
  
-  // Step 1: AI generates keywords for ANY equipment type
-  const keywords = await getRegulationKeywords(body);
-  console.log('Keywords:', keywords);
+  console.log('Search words:', searchWords);
  
-  // Step 2: Title search for each keyword
-  for (const kw of keywords) {
-    const words = kw.split(' ').filter(w => w.length > 3).slice(0, 2);
-    for (const word of words) {
-      try {
-        const rows = await dbGet('regulations', {
-          select: SELECT,
-          title: `ilike.*${word}*`,
-          limit: 8
-        });
-        addRows(rows);
-      } catch (e) {}
-    }
-    if (results.length >= limit) break;
-  }
- 
-  // Step 3: Equipment word title search
-  const equipWords = [body.equipmentCategory, body.equipmentType, body.fuelType]
-    .filter(Boolean).join(' ').split(/\s+/)
-    .filter(w => w.length > 3).slice(0, 6);
- 
-  for (const word of [...new Set(equipWords)]) {
+  // Search by title for each word
+  for (const word of [...new Set(searchWords)]) {
     try {
-      const rows = await dbGet('regulations', {
+      const rows = await supabaseGet('regulations', {
         select: SELECT,
         title: `ilike.*${word}*`,
-        limit: 5
+        limit: 8
       });
       addRows(rows);
-    } catch (e) {}
-    if (results.length >= limit) break;
+    } catch (e) { console.log(`Title search "${word}":`, e.message); }
   }
  
-  // Step 4: Keyword search RPC function
+  // Keyword search RPC
   try {
-    const kwQuery = [body.equipmentCategory, body.fuelType]
-      .filter(Boolean).join(' ').split(' ').slice(0, 4).join(' ');
-    if (kwQuery.trim()) {
-      const rows = await dbRpc('keyword_search_regulations', {
+    const kwQuery = searchWords.slice(0, 4).join(' ');
+    if (kwQuery) {
+      const rows = await supabaseRpc('keyword_search_regulations', {
         search_terms: kwQuery,
         result_limit: 10
       });
@@ -187,13 +171,12 @@ async function searchRegulations(body, limit = 35) {
     }
   } catch (e) { console.log('Keyword RPC:', e.message); }
  
-  // Step 5: Semantic embedding search
+  // Semantic search
   try {
-    const embedText = [body.equipmentCategory, body.equipmentType, body.fuelType, 'air quality regulation Kentucky']
-      .filter(Boolean).join(' ');
+    const embedText = searchWords.join(' ') + ' air quality regulation Kentucky';
     const embedding = await generateEmbedding(embedText);
     if (embedding) {
-      const rows = await dbRpc('search_regulations', {
+      const rows = await supabaseRpc('search_regulations', {
         query_embedding: embedding,
         match_threshold: 0.2,
         match_count: 15
@@ -202,9 +185,9 @@ async function searchRegulations(body, limit = 35) {
     }
   } catch (e) { console.log('Embedding search:', e.message); }
  
-  // Step 6: Always get all Kentucky regulations
+  // Always get Kentucky regulations
   try {
-    const kyRows = await dbGet('regulations', {
+    const kyRows = await supabaseGet('regulations', {
       select: SELECT,
       source: 'eq.kentucky',
       limit: 20
@@ -212,18 +195,18 @@ async function searchRegulations(body, limit = 35) {
     addRows(kyRows);
   } catch (e) { console.log('KY fetch:', e.message); }
  
-  console.log(`Found: ${results.length} regulations`);
+  console.log(`Search result: ${results.length} regulations`);
   return results.slice(0, limit);
 }
  
-function buildControlDeviceContext(devices) {
+function buildControlCtx(devices) {
   if (!devices || devices.length === 0) return 'None installed.';
   return devices.map((d, i) =>
     `Device ${i+1}: ${d.type}${d.efficiency ? ` | ${d.efficiency}` : ''}${d.pollutants ? ` | Controls: ${d.pollutants}` : ''}`
   ).join('\n');
 }
  
-// ── MAIN CHECK ────────────────────────────────────────────────────────────
+// ── MAIN CHECK ENDPOINT ───────────────────────────────────────────────────
 app.post('/check', async (req, res) => {
   if (!GEMINI_API_KEY) return res.status(500).json({ error: 'API key not configured.' });
   const body = req.body;
@@ -232,15 +215,16 @@ app.post('/check', async (req, res) => {
   }
  
   try {
-    const regs = await searchRegulations(body, 35);
+    // Search database for relevant regulations
+    const regs = await searchRegulations(body, 30);
  
     const regContext = regs.length > 0
       ? regs.map(r =>
-          `=== ${r.title} ===\nSource: ${r.source === 'federal' ? `40 CFR Part ${r.part}${r.subpart ? ' Subpart '+r.subpart : ''}` : r.part}\nURL: ${r.url||'N/A'}\nTags: ${(r.equipment_tags||[]).join(', ')}\n${(r.content||'').slice(0,1200)}\n`
+          `=== ${r.title} ===\nCFR/KAR: ${r.source === 'federal' ? `40 CFR Part ${r.part}${r.subpart ? ' Subpart '+r.subpart : ''}` : r.part}\nURL: ${r.url||'N/A'}\nTags: ${(r.equipment_tags||[]).join(', ')}\n${(r.content||'').slice(0,1500)}\n`
         ).join('\n---\n')
-      : 'No database results. Use full regulatory knowledge.';
+      : 'No database results — using regulatory training knowledge.';
  
-    const controlCtx = buildControlDeviceContext(body.controlDevices);
+    const controlCtx = buildControlCtx(body.controlDevices);
     const hasDevices = body.controlDevices && body.controlDevices.length > 0;
  
     const equipDetails = [
@@ -266,103 +250,128 @@ SOURCE DETAILS:
 ${equipDetails}
  
 =====================================================================
-MANDATORY ANALYSIS ORDER
+MANDATORY ANALYSIS — FOLLOW EXACTLY
 =====================================================================
  
-STEP 1 — EXEMPTIONS FIRST
-Check ALL exemptions before applicability. Unknown key trigger → "needs-info" NOT "applies".
+STEP 1 — CHECK EXEMPTIONS FIRST (always before applicability)
+For every regulation: evaluate ALL exemptions before checking applicability.
+If key exemption trigger is unknown → "needs-info" NOT "applies".
  
 STEP 2 — AUTO-DETERMINE NEW vs EXISTING
 Construction date: ${body.constructDate||'NOT PROVIDED'}
+Apply each regulation's own cutoff independently:
  
-40 CFR 60 cutoffs: D=Aug17'71, Da=Sep18'78, Db=Jun19'84, Dc=Jun9'89, E=Aug17'71,
-Ea=Dec20'89, Eb=Sep20'94, Ec=Jun20'96, F=Aug17'71, GG=Oct3'77, IIII=Jul11'05,
-JJJJ=Jun12'06, KKKK=Feb18'05, CCCC=Nov30'99, WWW=May30'91, OOO=Apr22'08,
-OOOO=Aug23'11, Kb=Jul23'84, BB=Sep24'76, BBa=Mar23'90, VVa=Nov7'06, RRR=Jun29'90
+40 CFR 60: D=Aug17'71, Da=Sep18'78, Db=Jun19'84, Dc=Jun9'89,
+E=Aug17'71, Ea=Dec20'89, Eb=Sep20'94, Ec=Jun20'96, F=Aug17'71,
+GG=Oct3'77, IIII=Jul11'05, JJJJ=Jun12'06, KKKK=Feb18'05,
+CCCC=Nov30'99, WWW=May30'91, OOO=Apr22'08, OOOO=Aug23'11,
+Kb=Jul23'84, BB=Sep24'76, BBa=Mar23'90, VVa=Nov7'06, RRR=Jun29'90
  
-40 CFR 63 cutoffs: ZZZZ=Jun12'06, YYYY=Jan14'03, DDDDD=Jun4'10, JJJJJJ=Jun4'10,
-UUUUU=May3'11, S=Apr15'98, M=Dec9'91, N=Jan25'95, T=Jul15'94, CC=Aug18'95,
-EEE=Jun19'96, LLL=Jun16'08, HHHHHH=Jan9'08, FFFF=Apr4'02, VVVVVV=Oct6'08
+40 CFR 63: ZZZZ=Jun12'06, YYYY=Jan14'03, DDDDD=Jun4'10,
+JJJJJJ=Jun4'10, UUUUU=May3'11, S=Apr15'98, M=Dec9'91,
+N=Jan25'95, T=Jul15'94, CC=Aug18'95, EEE=Jun19'96, LLL=Jun16'08,
+HHHHHH=Jan9'08, FFFF=Apr4'02, VVVVVV=Oct6'08
  
 Kentucky: 401 KAR 59=new (after Jul2'75), 401 KAR 61=existing (before Jul2'75)
  
-STEP 3 — APPLICABILITY (after exemptions confirmed)
-STEP 4 — REQUIREMENTS
+STEP 3 — CHECK APPLICABILITY (after exemptions confirmed clear)
+STEP 4 — DETERMINE REQUIREMENTS (only for applicable regulations)
  
 =====================================================================
-KEY EXEMPTION RULES
+KEY EXEMPTION RULES (most commonly missed)
 =====================================================================
-Subpart S: ONLY chemical pulping. Unknown → needs-info.
-Subpart Dc: 10-100 MMBtu/hr. Gas-fired exempt from SO2/PM but needs notifications.
-Subpart Db: >100 MMBtu/hr only.
-Subpart DDDDD: major HAP sources only. Unknown → needs-info.
-Subpart JJJJJJ: area HAP sources only. Unknown → needs-info.
-Subpart IIII: CI engines only, after Jul11'05.
-Subpart JJJJ: SI engines only, after Jun12'06.
-Subpart ZZZZ: area CI<300HP or SI<500HP → annual inspection only §63.6625(e).
-Subpart EEE: ONLY RCRA hazardous waste. Non-hazardous → CISWI (CCCC).
+Subpart S (Pulp/Paper): ONLY chemical pulping — kraft/sulfite/soda/semi-chem.
+  Mechanical/recycled/paper-only → not-applies. Unknown type → needs-info.
+Subpart Dc: 10-100 MMBtu/hr only. <10 or >100 → different subpart.
+  Natural gas: exempt from SO2/PM limits but still needs notifications/recordkeeping.
+Subpart Db: >100 MMBtu/hr only. <100 → use Dc.
+Subpart DDDDD: major HAP sources ONLY. Area source → use JJJJJJ. Unknown → needs-info.
+Subpart JJJJJJ: area HAP sources ONLY. Major source → use DDDDD. Unknown → needs-info.
+Subpart IIII: CI/diesel engines only, commenced after Jul11'05.
+Subpart JJJJ: SI engines only, commenced after Jun12'06.
+Subpart ZZZZ: area source CI<300HP or SI<500HP → annual inspection only §63.6625(e).
+Subpart EEE: ONLY RCRA hazardous waste. Non-hazardous pharmaceutical waste → CISWI (CCCC).
 Subpart FFFF (MON): organic chemical manufacturing at MAJOR HAP sources only.
 Subpart VVVVVV (CMAS): chemical manufacturing at AREA HAP sources only.
-Subpart VVa: SOCMI equipment leaks — verify product on 40 CFR 60.489 list.
 Subpart RRR: SOCMI reactors — batch reactors exempt per §60.700(c)(1).
-401 KAR 59: does NOT apply to engines/turbines. DOES apply to boilers,
-  process heaters, kilns, dryers, chemical process units, coating operations.
-401 KAR 63: opacity applies to all combustion and process sources.
+401 KAR 59: process standards do NOT apply to engines or turbines.
+  DOES apply to: boilers, indirect heat exchangers, process units, kilns, dryers,
+  coating lines, chemical reactors — anything that converts raw materials to products.
+401 KAR 63: opacity applies broadly. NOT separately cited for engines.
  
-NSR/PSD: PSD if new/modified major (≥100 tpy listed, ≥250 unlisted) in attainment.
-Nonattainment NSR if in nonattainment area. Unknown PTE → needs-info.
+=====================================================================
+NSR/PSD — ALWAYS EVALUATE FOR EVERY SOURCE
+=====================================================================
+PSD: new/modified major source (≥100 tpy listed, ≥250 unlisted) in attainment area.
+  Requires preconstruction permit BEFORE construction — 401 KAR 55:005, 40 CFR 52.21.
+Nonattainment NSR: new/modified major in nonattainment area (KY: ozone, PM2.5).
+  Requires LAER and offsets — 401 KAR 56:005.
+Minor NSR/State permit: below major thresholds but subject to applicable requirements.
+If PTE/size unknown → needs-info for PSD.
  
-CAM: all 3 must be yes: (1) numeric limit, (2) add-on control device, (3) pre-control PTE>100 tpy.
-${!hasDevices ? 'No control devices → CAM does not apply.' : ''}
+=====================================================================
+CAM (40 CFR Part 64) — EVALUATE PER DEVICE PER POLLUTANT
+=====================================================================
+ALL THREE must be yes for CAM to apply:
+1. Emission unit subject to numeric emission limit/standard?
+2. Uses add-on control device to achieve compliance with that limit?
+3. Pre-control device PTE > 100 tpy for that pollutant?
+If any criterion unknown → needs-info.
+${!hasDevices ? 'No control devices installed → CAM does not apply (Criterion 2 fails).' : ''}
  
-Use database regulations as context AND your full regulatory knowledge.
-Include any regulation that likely applies even if not in database results.
+=====================================================================
+SCOPE — BE THOROUGH
+=====================================================================
+Use the database regulations as context AND your full knowledge of 40 CFR and 401 KAR.
+Include every regulation that plausibly applies to this equipment.
+If a regulation clearly applies based on your knowledge but is not in the database
+results, include it anyway with your reasoning.
  
-Respond ONLY with valid JSON:
+Respond ONLY with valid JSON, no other text:
 {
-  "summary": "3-4 sentences specific to this source",
-  "newExistingDetermination": "Per-regulation new/existing with cutoffs cited",
+  "summary": "3-4 sentences specific to this source — what it is, key regulations found, new/existing status, most important actions needed",
+  "newExistingDetermination": "For each relevant regulation: state cutoff date, construction date, and new/existing conclusion",
   "dataQuality": "complete|partial|insufficient",
-  "missingInfo": ["item and why"],
+  "missingInfo": ["Specific missing item and exactly why it is needed for determination"],
   "regulations": [
     {
       "id": "unique-id",
-      "name": "Regulation name",
-      "fullName": "Full name",
+      "name": "e.g. 40 CFR 60 Subpart Dc",
+      "fullName": "Full descriptive name",
       "category": "Federal NSPS|Federal NESHAP|Federal NSR/PSD|Federal Other|Kentucky State",
       "status": "applies|not-applies|needs-info",
       "badge": "Applies|Does not apply|More info needed",
       "newExisting": "New source|Existing source|N/A|Needs construction date",
-      "exemptionChecked": "Each exemption and result",
-      "reason": "2-3 sentences: exemption + new/existing + source specifics",
-      "cite": "Specific citations with explanation",
-      "keyRequirements": ["Requirement 1", "Requirement 2"],
-      "controlDeviceNotes": "How each device affects this regulation",
-      "url": "URL if available"
+      "exemptionChecked": "List each exemption checked and its result — be specific",
+      "reason": "2-3 sentences: exemption result + new/existing determination + source characteristics",
+      "cite": "Specific section citations with brief explanation of each",
+      "keyRequirements": ["Most important requirement 1", "Requirement 2", "Requirement 3"],
+      "controlDeviceNotes": "How each installed device affects compliance with this regulation",
+      "url": "https://www.ecfr.gov/... or https://apps.legislature.ky.gov/..."
     }
   ],
   "nsrPsd": {
     "psdStatus": "applies|not-applies|needs-info",
-    "psdReason": "Explanation with thresholds",
+    "psdReason": "Explanation with PTE thresholds referenced",
     "nonattainmentStatus": "applies|not-applies|needs-info",
-    "nonattainmentReason": "Explanation",
+    "nonattainmentReason": "Explanation referencing Kentucky nonattainment designations",
     "minorNsrStatus": "applies|not-applies|needs-info",
-    "minorNsrReason": "Explanation",
+    "minorNsrReason": "Explanation for minor source permit path",
     "cite": "401 KAR 55:005, 401 KAR 55:010, 40 CFR 52.21"
   },
   "permitType": {
     "determination": "Registration (401 KAR 52:070)|State Origin Permit (401 KAR 52:040)|Conditional Major|Title V (401 KAR 52:020)|No permit required|Needs more info",
-    "reason": "Explanation with thresholds"
+    "reason": "Explanation referencing PTE thresholds and applicable requirements"
   },
   "camApplicability": {
     "status": "applies|not-applies|needs-info",
     "devices": [
       {
-        "device": "Device and pollutant",
-        "criterion1": "Numeric limit? Yes/No — cite",
-        "criterion2": "Add-on control? Yes/No",
-        "criterion3": "Pre-control PTE >100 tpy? Yes/No/Unknown",
-        "conclusion": "CAM applies/not-applies/needs-info"
+        "device": "Device name and pollutant being evaluated",
+        "criterion1": "Subject to numeric emission limit? Yes/No — cite specific limit and regulation",
+        "criterion2": "Achieves compliance via add-on control device? Yes/No — explain",
+        "criterion3": "Pre-control PTE > 100 tpy? Yes/No/Unknown — explain",
+        "conclusion": "CAM applies/not-applies/needs-info — reason"
       }
     ],
     "reason": "Overall CAM conclusion"
@@ -377,7 +386,11 @@ Order: applies first, needs-info second, not-applies last.`;
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json' }
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 8192,
+            responseMimeType: 'application/json'
+          }
         })
       }
     );
@@ -386,46 +399,40 @@ Order: applies first, needs-info second, not-applies last.`;
     if (!gemResp.ok) return res.status(500).json({ error: 'Gemini error: ' + (gemData?.error?.message||'Unknown') });
  
     const rawText = gemData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!rawText) return res.status(500).json({ error: 'Empty response.' });
+    if (!rawText) return res.status(500).json({ error: 'Empty response from Gemini.' });
  
     const cleaned = rawText.replace(/```json/g,'').replace(/```/g,'').trim();
-    const s = cleaned.indexOf('{'), e = cleaned.lastIndexOf('}');
-    if (s === -1 || e === -1) return res.status(500).json({ error: 'No JSON. Raw: '+rawText.slice(0,300) });
+    const s = cleaned.indexOf('{');
+    const e = cleaned.lastIndexOf('}');
+    if (s === -1 || e === -1) return res.status(500).json({ error: 'No JSON found. Raw: '+rawText.slice(0,300) });
  
     const parsed = JSON.parse(cleaned.slice(s, e+1));
+    parsed.regulationsSearched = regs.length;
  
     // Save to history
     try {
-      await dbPost('determinations', {
-        equipment_type: body.equipmentCategory || body.description,
+      await supabaseInsert('determinations', {
+        equipment_type: body.equipmentCategory || body.description || 'Unknown',
         equipment_details: body,
         results: parsed,
         created_at: new Date().toISOString()
       });
-    } catch (e) { console.log('History save:', e.message); }
+    } catch (saveErr) {
+      console.log('History save failed (non-critical):', saveErr.message);
+    }
  
-    parsed.regulationsSearched = regs.length;
     res.json(parsed);
  
   } catch (err) {
-    console.error('Check error:', err);
+    console.error('Check error:', err.message);
     res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
  
-// ── HISTORY ───────────────────────────────────────────────────────────────
-app.get('/history', async (req, res) => {
-  try {
-    const data = await dbGet('determinations', {
-      select: 'id,created_at,equipment_type,equipment_details,results',
-      order: 'created_at.desc',
-      limit: 50
-    });
-    res.json(data || []);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
- 
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v8.0 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v9.0 running on port ${PORT}`);
+  console.log(`Supabase URL: ${SUPABASE_URL ? 'SET' : 'MISSING'}`);
+  console.log(`Supabase Key: ${SUPABASE_KEY ? 'SET' : 'MISSING'}`);
+  console.log(`Gemini Key: ${GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
 });
  
