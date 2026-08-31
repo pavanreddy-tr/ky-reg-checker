@@ -54,15 +54,15 @@ async function dbRpc(fn, params) {
 }
  
 app.get('/', (req, res) => {
-  res.json({ status: 'EEC AI Assistant API running', version: '11.0' });
+  res.json({ status: 'EEC AI Assistant API running', version: '13.0' });
 });
  
 app.get('/stats', async (req, res) => {
   try {
     const count = await dbCount('regulations');
-    res.json({ regulations_in_database: count, status: 'healthy', version: '11.0' });
+    res.json({ regulations_in_database: count, status: 'healthy', version: '13.0' });
   } catch (err) {
-    res.json({ regulations_in_database: 428, status: 'healthy', version: '11.0', note: 'cached' });
+    res.json({ regulations_in_database: 428, status: 'healthy', version: '13.0', note: 'cached' });
   }
 });
  
@@ -133,6 +133,394 @@ async function searchRegulations(body, limit = 35) {
   } catch (e) {}
  
   return results.slice(0, limit);
+}
+ 
+// ── FETCH FULL REGULATION TEXT FOR DEEP ANALYSIS ─────────────────────────
+// After finding which regulations likely apply, fetch their complete text
+// so Gemini can reason through every paragraph, not just use memory
+async function fetchFullRegText(part, subpart) {
+  try {
+    const SELECT = 'id,source,part,subpart,title,content,url';
+    const rows = await dbGet('regulations', {
+      select: SELECT,
+      source: 'eq.federal',
+      part: `eq.${part}`,
+      subpart: `eq.${subpart}`,
+      limit: 1
+    });
+    if (rows && rows.length > 0) return rows[0];
+    return null;
+  } catch (e) {
+    console.log(`fetchFullRegText error Part ${part} Subpart ${subpart}:`, e.message);
+    return null;
+  }
+}
+ 
+// Fetch full text of all applicable regulations for ANY equipment type
+// This is the core of accurate determination — read actual CFR text
+async function fetchApplicableRegTexts(body) {
+  const cat = (body.equipmentCategory || '').toLowerCase();
+  const fuel = (body.fuelType || '').toLowerCase();
+  const use = (body.equipmentType || '').toLowerCase();
+  const desc = (body.description || '').toLowerCase();
+  const capStr = (body.capacity || '').replace(/[^0-9.]/g, '');
+  const cap = parseFloat(capStr) || 0;
+  const capUnit = (body.capacity || '').toLowerCase();
+  const isMMBtu = capUnit.includes('mmbtu') || capUnit.includes('btu');
+  const isHP = capUnit.includes('hp') || capUnit.includes('horsepower');
+  const capMMBtu = isMMBtu ? cap : 0;
+  const capHP = isHP ? cap : 0;
+  const isEmergency = use.includes('emergency') || use.includes('standby');
+  const isMajor = (body.sourceClass || '').toLowerCase().includes('major');
+  const isArea = (body.sourceClass || '').toLowerCase().includes('area');
+ 
+  // Always fetch Kentucky regulations
+  const toFetch = [
+    { part: '401 KAR 52', subpart: null },
+    { part: '401 KAR 59', subpart: null },
+    { part: '401 KAR 63', subpart: null },
+  ];
+ 
+  // ── ENGINES ──────────────────────────────────────────────────────────
+  const isCI = cat.includes('ci') || cat.includes('diesel') || cat.includes('compression ignition');
+  const isSI = cat.includes('si') || cat.includes('spark ignition') || cat.includes('natural gas') || cat.includes('gasoline') || cat.includes('landfill gas');
+  const isEngine = isCI || isSI || cat.includes('engine');
+ 
+  if (isCI) {
+    toFetch.push({ part: '60', subpart: 'IIII' });   // NSPS CI engines
+    toFetch.push({ part: '63', subpart: 'ZZZZ' });   // RICE NESHAP
+  }
+  if (isSI) {
+    toFetch.push({ part: '60', subpart: 'JJJJ' });   // NSPS SI engines
+    toFetch.push({ part: '63', subpart: 'ZZZZ' });   // RICE NESHAP
+  }
+ 
+  // ── BOILERS ──────────────────────────────────────────────────────────
+  const isBoiler = cat.includes('boiler') || cat.includes('steam generating') || cat.includes('process heater') || cat.includes('indirect heat');
+  if (isBoiler) {
+    // Size-based NSPS
+    if (capMMBtu > 100 || (!isMMBtu && cap > 100)) {
+      toFetch.push({ part: '60', subpart: 'Db' });   // Large industrial boiler
+      toFetch.push({ part: '60', subpart: 'Da' });   // Electric utility
+    } else if (capMMBtu >= 10 || (!isMMBtu && cap >= 10)) {
+      toFetch.push({ part: '60', subpart: 'Dc' });   // Small industrial boiler
+    } else {
+      toFetch.push({ part: '60', subpart: 'Dc' });
+      toFetch.push({ part: '60', subpart: 'Db' });
+    }
+    // MACT - source type determines which
+    if (isMajor) toFetch.push({ part: '63', subpart: 'DDDDD' });
+    if (isArea) toFetch.push({ part: '63', subpart: 'JJJJJJ' });
+    if (!isMajor && !isArea) {
+      toFetch.push({ part: '63', subpart: 'DDDDD' });
+      toFetch.push({ part: '63', subpart: 'JJJJJJ' });
+    }
+    // Utility boiler
+    if (cat.includes('utility') || cat.includes('electric')) {
+      toFetch.push({ part: '63', subpart: 'UUUUU' });
+    }
+    // Kentucky new/existing
+    toFetch.push({ part: '401 KAR 61', subpart: null });
+  }
+ 
+  // ── COMBUSTION TURBINES ───────────────────────────────────────────────
+  const isTurbine = cat.includes('turbine') || cat.includes('gas turbine') || cat.includes('combustion turbine');
+  if (isTurbine) {
+    toFetch.push({ part: '60', subpart: 'KKKK' });
+    toFetch.push({ part: '63', subpart: 'YYYY' });
+  }
+ 
+  // ── INCINERATORS ─────────────────────────────────────────────────────
+  const isIncinHazWaste = cat.includes('hazardous waste') || desc.includes('rcra');
+  const isIncinMedical = cat.includes('medical') || cat.includes('infectious') || cat.includes('hospital');
+  const isIncinMSW = cat.includes('municipal solid waste') || cat.includes('msw');
+  const isIncinCISWI = cat.includes('ciswi') || cat.includes('commercial') || cat.includes('industrial solid waste');
+  const isIncinPharma = cat.includes('pharmaceutical') || cat.includes('drug waste');
+  const isIncinSewage = cat.includes('sewage sludge');
+ 
+  if (isIncinHazWaste) toFetch.push({ part: '63', subpart: 'EEE' });
+  if (isIncinMedical) toFetch.push({ part: '60', subpart: 'Ec' });
+  if (isIncinMSW) {
+    toFetch.push({ part: '60', subpart: 'Eb' });
+    toFetch.push({ part: '60', subpart: 'AAAA' });
+  }
+  if (isIncinCISWI || isIncinPharma) {
+    toFetch.push({ part: '60', subpart: 'CCCC' });
+    toFetch.push({ part: '63', subpart: 'EEE' }); // check HW status
+  }
+  if (isIncinSewage) {
+    toFetch.push({ part: '60', subpart: 'LLLL' });
+  }
+  if (cat.includes('incinerat')) {
+    toFetch.push({ part: '60', subpart: 'E' });
+    toFetch.push({ part: '401 KAR 64', subpart: null });
+  }
+ 
+  // ── LANDFILLS ────────────────────────────────────────────────────────
+  const isLandfill = cat.includes('landfill');
+  if (isLandfill) {
+    toFetch.push({ part: '60', subpart: 'WWW' });    // NSPS new landfills
+    toFetch.push({ part: '63', subpart: 'AAAA' });   // NESHAP landfills
+    toFetch.push({ part: '98', subpart: 'HH' });     // GHG landfills
+    // Federal plan for existing landfills
+    toFetch.push({ part: '62', subpart: 'OOO' });
+  }
+ 
+  // ── STORAGE TANKS ─────────────────────────────────────────────────────
+  const isTank = cat.includes('storage tank') || cat.includes('volatile organic liquid') || cat.includes('vol ');
+  if (isTank) {
+    toFetch.push({ part: '60', subpart: 'Kb' });     // VOL storage vessels
+    toFetch.push({ part: '60', subpart: 'K' });      // Older petroleum tanks
+    toFetch.push({ part: '60', subpart: 'Ka' });     // 1978-1984 petroleum tanks
+    toFetch.push({ part: '63', subpart: 'OO' });     // Tanks Level 1 NESHAP
+    toFetch.push({ part: '63', subpart: 'WW' });     // Tanks Level 2 NESHAP
+  }
+  if (cat.includes('bulk') && cat.includes('gasoline')) {
+    toFetch.push({ part: '60', subpart: 'XX' });     // Bulk gasoline terminals
+    toFetch.push({ part: '63', subpart: 'BBBBBB' }); // Bulk terminals area source
+  }
+  if (cat.includes('gasoline dispensing')) {
+    toFetch.push({ part: '63', subpart: 'CCCCCC' }); // Gasoline dispensing area
+  }
+ 
+  // ── MINERAL PROCESSING / CRUSHING / QUARRYING ─────────────────────────
+  const isMineral = cat.includes('mineral') || cat.includes('crush') || cat.includes('quarry') || cat.includes('screen') || cat.includes('aggregate') || cat.includes('sand') || cat.includes('gravel') || cat.includes('stone');
+  if (isMineral) {
+    toFetch.push({ part: '60', subpart: 'OOO' });   // Nonmetallic mineral processing
+    toFetch.push({ part: '401 KAR 61', subpart: null }); // KY existing sources
+  }
+ 
+  // ── ASPHALT ──────────────────────────────────────────────────────────
+  if (cat.includes('asphalt') || cat.includes('hot mix')) {
+    toFetch.push({ part: '60', subpart: 'I' });      // Hot mix asphalt
+    toFetch.push({ part: '60', subpart: 'UU' });     // Asphalt processing
+  }
+ 
+  // ── CEMENT ───────────────────────────────────────────────────────────
+  if (cat.includes('cement') || cat.includes('portland')) {
+    toFetch.push({ part: '60', subpart: 'F' });      // Portland cement NSPS
+    toFetch.push({ part: '63', subpart: 'LLL' });    // Portland cement NESHAP
+  }
+ 
+  // ── GLASS ────────────────────────────────────────────────────────────
+  if (cat.includes('glass')) {
+    toFetch.push({ part: '60', subpart: 'CC' });     // Glass manufacturing NSPS
+    toFetch.push({ part: '63', subpart: 'SSSSSS' }); // Glass area source NESHAP
+  }
+ 
+  // ── LIME ─────────────────────────────────────────────────────────────
+  if (cat.includes('lime')) {
+    toFetch.push({ part: '60', subpart: 'HH' });     // Lime manufacturing NSPS
+    toFetch.push({ part: '63', subpart: 'AAAAA' });  // Lime manufacturing NESHAP
+    toFetch.push({ part: '63', subpart: 'YYYYYY' }); // Lime area source NESHAP
+  }
+ 
+  // ── PULP AND PAPER ───────────────────────────────────────────────────
+  const isPulp = cat.includes('pulp') || cat.includes('paper') || cat.includes('kraft');
+  if (isPulp) {
+    toFetch.push({ part: '60', subpart: 'BB' });     // Kraft pulp NSPS
+    toFetch.push({ part: '60', subpart: 'BBa' });    // Kraft pulp NSPS amended
+    toFetch.push({ part: '63', subpart: 'S' });      // Pulp/paper NESHAP
+    toFetch.push({ part: '63', subpart: 'MM' });     // Chemical recovery NESHAP
+  }
+ 
+  // ── METAL FOUNDRY / SMELTER ───────────────────────────────────────────
+  const isFoundry = cat.includes('foundry') || cat.includes('smelter') || cat.includes('metal') || cat.includes('iron') || cat.includes('steel') || cat.includes('aluminum') || cat.includes('copper');
+  if (isFoundry) {
+    if (cat.includes('iron') || cat.includes('steel')) {
+      toFetch.push({ part: '60', subpart: 'AA' });   // EAF steel NSPS
+      toFetch.push({ part: '63', subpart: 'EEEEE' }); // Iron steel NESHAP major
+      toFetch.push({ part: '63', subpart: 'YYYYY' }); // EAF area source
+      toFetch.push({ part: '63', subpart: 'ZZZZZ' }); // Foundry area source
+    }
+    if (cat.includes('aluminum')) {
+      toFetch.push({ part: '60', subpart: 'S' });    // Primary aluminum NSPS
+      toFetch.push({ part: '63', subpart: 'LL' });   // Primary aluminum NESHAP
+      toFetch.push({ part: '63', subpart: 'RRR' });  // Secondary aluminum NESHAP
+      toFetch.push({ part: '63', subpart: 'ZZZZZZ' }); // Nonferrous foundry area
+    }
+    if (cat.includes('copper')) {
+      toFetch.push({ part: '60', subpart: 'P' });    // Primary copper NSPS
+      toFetch.push({ part: '63', subpart: 'QQQ' });  // Primary copper NESHAP
+      toFetch.push({ part: '63', subpart: 'EEEEEE' }); // Copper area source
+    }
+    if (cat.includes('lead')) {
+      toFetch.push({ part: '60', subpart: 'L' });    // Secondary lead
+      toFetch.push({ part: '63', subpart: 'X' });    // Secondary lead NESHAP
+      toFetch.push({ part: '63', subpart: 'TTT' });  // Primary lead NESHAP
+    }
+  }
+ 
+  // ── SURFACE COATING ───────────────────────────────────────────────────
+  const isCoating = cat.includes('coating') || cat.includes('paint') || cat.includes('finishing') || cat.includes('spray');
+  if (isCoating) {
+    toFetch.push({ part: '63', subpart: 'HHHHHH' }); // Paint stripping area source
+    toFetch.push({ part: '63', subpart: 'MMMM' });   // Misc metal parts coating
+    toFetch.push({ part: '63', subpart: 'OOOO' });   // Metal furniture coating
+    if (cat.includes('wood')) toFetch.push({ part: '63', subpart: 'RRRR' }); // Wood furniture
+    if (cat.includes('auto') || cat.includes('vehicle')) toFetch.push({ part: '60', subpart: 'MM' });
+    if (cat.includes('large appliance')) toFetch.push({ part: '60', subpart: 'SS' });
+    if (cat.includes('metal coil')) toFetch.push({ part: '60', subpart: 'TT' });
+  }
+ 
+  // ── PRINTING ─────────────────────────────────────────────────────────
+  if (cat.includes('print') || cat.includes('graphic arts') || cat.includes('publishing')) {
+    toFetch.push({ part: '60', subpart: 'QQ' });     // Rotogravure/flexo NSPS
+    toFetch.push({ part: '63', subpart: 'KK' });     // Printing/publishing NESHAP
+  }
+ 
+  // ── CHEMICAL MANUFACTURING / SOCMI ────────────────────────────────────
+  const isChem = cat.includes('chemical') || cat.includes('socmi') || cat.includes('pharmaceutical') || cat.includes('tnt') || cat.includes('explosive') || cat.includes('reactor') || cat.includes('distillat') || cat.includes('solvent');
+  if (isChem) {
+    if (isMajor) toFetch.push({ part: '63', subpart: 'FFFF' });  // MON major source
+    if (isArea) toFetch.push({ part: '63', subpart: 'VVVVVV' }); // CMAS area source
+    if (!isMajor && !isArea) {
+      toFetch.push({ part: '63', subpart: 'FFFF' });
+      toFetch.push({ part: '63', subpart: 'VVVVVV' });
+    }
+    toFetch.push({ part: '60', subpart: 'VVa' });   // Equipment leaks SOCMI
+    toFetch.push({ part: '60', subpart: 'RRR' });   // Reactor processes SOCMI
+    toFetch.push({ part: '60', subpart: 'NNN' });   // Distillation SOCMI
+    toFetch.push({ part: '68', subpart: 'A' });     // RMP
+    toFetch.push({ part: '68', subpart: 'G' });     // RMP plan requirements
+  }
+ 
+  // ── PETROLEUM REFINERY ────────────────────────────────────────────────
+  if (cat.includes('refiner') || cat.includes('petroleum refin')) {
+    toFetch.push({ part: '60', subpart: 'J' });     // Petroleum refinery NSPS
+    toFetch.push({ part: '60', subpart: 'Ja' });    // Petroleum refinery NSPS new
+    toFetch.push({ part: '63', subpart: 'CC' });    // Petroleum refinery NESHAP
+    toFetch.push({ part: '63', subpart: 'UUU' });   // Catalytic cracking NESHAP
+    toFetch.push({ part: '60', subpart: 'GGG' });   // Equipment leaks refinery
+  }
+ 
+  // ── OIL AND GAS PRODUCTION ────────────────────────────────────────────
+  const isOilGas = cat.includes('oil') || cat.includes('natural gas') || cat.includes('well') || cat.includes('pipeline') || cat.includes('compressor station') || cat.includes('gas processing');
+  if (isOilGas && !isEngine) { // Avoid double-adding for gas engines
+    toFetch.push({ part: '60', subpart: 'OOOOb' }); // 2024 oil/gas NSPS
+    toFetch.push({ part: '60', subpart: 'OOOOa' }); // 2016 oil/gas NSPS
+    toFetch.push({ part: '60', subpart: 'OOOO' });  // 2012 oil/gas NSPS
+    toFetch.push({ part: '63', subpart: 'HHH' });   // Natural gas transmission
+    toFetch.push({ part: '60', subpart: 'KKK' });   // Equipment leaks nat gas
+  }
+ 
+  // ── ELECTROPLATING / METAL FINISHING ──────────────────────────────────
+  const isPlating = cat.includes('electro') || cat.includes('plat') || cat.includes('chrome') || cat.includes('metal finish') || cat.includes('anodiz');
+  if (isPlating) {
+    toFetch.push({ part: '63', subpart: 'N' });     // Chrome electroplating major
+    toFetch.push({ part: '63', subpart: 'IIIIII' }); // Chrome plating area source
+    toFetch.push({ part: '63', subpart: 'VVVVVV' }); // Plating/polishing area
+  }
+ 
+  // ── DRY CLEANING ─────────────────────────────────────────────────────
+  if (cat.includes('dry clean') || desc.includes('perchloroethylene') || desc.includes('pce')) {
+    toFetch.push({ part: '63', subpart: 'M' });     // PCE dry cleaning NESHAP
+  }
+ 
+  // ── SOLVENT CLEANING / DEGREASING ────────────────────────────────────
+  if (cat.includes('solvent') || cat.includes('degreasing') || cat.includes('cleaning')) {
+    toFetch.push({ part: '63', subpart: 'T' });     // Halogenated solvent cleaning
+  }
+ 
+  // ── GRAIN ELEVATOR ───────────────────────────────────────────────────
+  if (cat.includes('grain') || cat.includes('elevator') || cat.includes('feed mill')) {
+    toFetch.push({ part: '60', subpart: 'DD' });    // Grain elevators NSPS
+  }
+ 
+  // ── WASTEWATER TREATMENT ─────────────────────────────────────────────
+  if (cat.includes('wastewater') || cat.includes('potw') || cat.includes('sewage treatment')) {
+    toFetch.push({ part: '60', subpart: 'O' });     // Sewage treatment plants
+    toFetch.push({ part: '63', subpart: 'VVV' });   // POTW NESHAP
+  }
+ 
+  // ── RUBBER / TIRE ─────────────────────────────────────────────────────
+  if (cat.includes('rubber') || cat.includes('tire')) {
+    toFetch.push({ part: '63', subpart: 'BBBB' });  // Rubber tire major source
+    toFetch.push({ part: '63', subpart: 'XXXX' });  // Rubber tire area source
+  }
+ 
+  // ── WOOD PRODUCTS / FURNITURE ─────────────────────────────────────────
+  if (cat.includes('wood') || cat.includes('furniture') || cat.includes('plywood') || cat.includes('composite')) {
+    toFetch.push({ part: '63', subpart: 'JJ' });    // Wood furniture manufacturing
+    toFetch.push({ part: '63', subpart: 'CCCC' });  // Plywood composite major
+    toFetch.push({ part: '63', subpart: 'DDDD' });  // Plywood composite area
+  }
+ 
+  // ── SEMICONDUCTOR / ELECTRONICS ───────────────────────────────────────
+  if (cat.includes('semiconductor') || cat.includes('electronic') || cat.includes('circuit board')) {
+    toFetch.push({ part: '63', subpart: 'BBBBB' }); // Semiconductor major
+    toFetch.push({ part: '63', subpart: 'WWWWWW' }); // Semiconductor area
+  }
+ 
+  // ── REFRIGERATION / HVAC ─────────────────────────────────────────────
+  if (cat.includes('refriger') || cat.includes('hvac') || cat.includes('chiller') || cat.includes('cooling') || desc.includes('refrigerant')) {
+    toFetch.push({ part: '82', subpart: 'F' });     // Refrigerant recycling Subpart F
+    toFetch.push({ part: '82', subpart: 'A' });     // Ozone protection general
+  }
+ 
+  // ── ALWAYS: Check RMP for any large chemical/flammable storage ────────
+  if (desc.includes('ammonia') || desc.includes('chlorine') || desc.includes('propane') || desc.includes('hydrogen') || desc.includes('flammable') || desc.includes('toxic') || isChem) {
+    toFetch.push({ part: '68', subpart: 'A' });
+  }
+ 
+  // ── ALWAYS: Check GHG for large combustion sources ───────────────────
+  if (capMMBtu > 100 || (isBoiler && cap > 50) || isTurbine || cat.includes('cement') || cat.includes('lime') || isLandfill) {
+    toFetch.push({ part: '98', subpart: 'C' });     // Stationary combustion GHG
+  }
+ 
+  // ── Deduplicate and fetch full text ───────────────────────────────────
+  const unique = [];
+  const seen = new Set();
+  for (const t of toFetch) {
+    const key = `${t.part}|${t.subpart||'null'}`;
+    if (!seen.has(key)) { seen.add(key); unique.push(t); }
+  }
+ 
+  console.log(`Fetching full text for ${unique.length} regulations:`, unique.map(t => `${t.part} ${t.subpart||''}`).join(', '));
+ 
+  const fetched = [];
+  // Fetch all — limit to 8 to stay within Gemini context window
+  for (const { part, subpart } of unique.slice(0, 8)) {
+    try {
+      let rows;
+      if (subpart) {
+        rows = await dbGet('regulations', {
+          select: 'id,source,part,subpart,title,content,url',
+          source: 'eq.federal',
+          part: `eq.${part}`,
+          subpart: `eq.${subpart}`,
+          limit: 1
+        });
+      } else {
+        // Kentucky chapter — search by part name
+        rows = await dbGet('regulations', {
+          select: 'id,source,part,subpart,title,content,url',
+          source: 'eq.kentucky',
+          part: `ilike.*${part}*`,
+          limit: 1
+        });
+      }
+      if (rows && rows.length > 0 && rows[0].content) {
+        fetched.push(rows[0]);
+      }
+    } catch (e) {
+      console.log(`Fetch error ${part} ${subpart}:`, e.message);
+    }
+  }
+ 
+  console.log(`Successfully fetched full text for ${fetched.length} regulations`);
+  return fetched;
+}
+ 
+// ── ECFR PARAGRAPH URL BUILDER ────────────────────────────────────────────
+// Builds direct links to specific paragraphs on eCFR
+function buildEcfrUrl(part, subpart, section, paragraph) {
+  const base = 'https://www.ecfr.gov/current/title-40';
+  if (!section) {
+    return `${base}/chapter-I/subchapter-C/part-${part}/subpart-${subpart}`;
+  }
+  const anchor = paragraph ? `#p-${section}${encodeURIComponent(paragraph)}` : '';
+  return `${base}/chapter-I/subchapter-C/part-${part}/subpart-${subpart}/section-${section}${anchor}`;
 }
  
 function buildControlCtx(devices) {
@@ -240,15 +628,6 @@ Emission standards: NOx in ppmvd at 15% O2, varies by fuel and turbine size
 §60.4330 monitoring: CEMS or parametric monitoring
 §60.4333 performance testing requirements
 §60.4340 notifications and recordkeeping
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-40 CFR 60 SUBPART KKa — LEAD ACID BATTERY MANUFACTURING (newer)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Q1: Is it a lead-acid battery manufacturing plant? NO→not subject
-Q2: Construction commenced AFTER February 23, 2022? 
-  YES→Subpart KKa applies (newer rule)
-  NO→Subpart KK applies (older rule, before Feb 23 2022)
-Do NOT apply both — only one applies based on construction date.
  
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. 40 CFR 63 SUBPART YYYY — COMBUSTION TURBINE NESHAP
@@ -370,15 +749,161 @@ Subject → determine control requirements by capacity and TVP:
 11. 40 CFR 60 SUBPART WWW — MUNICIPAL SOLID WASTE LANDFILL NSPS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Q1: Is it a municipal solid waste (MSW) landfill? NO→not subject
-Q2: Construction commenced after May 30, 1991? NO→not subject (use emission guidelines)
+Q2: Construction commenced after May 30 1991? NO→use emission guidelines (Subpart Cc)
 Q3: Design capacity ≥2.5 million Mg AND ≥2.5 million m3? NO→not subject
-Q4: NMOC emissions ≥50 Mg/yr? NO→not subject
+Q4: NMOC emissions ≥50 Mg/yr? NO→not subject yet (monitor and recalculate annually)
  
-Subject → §60.752 gas collection and control requirements
-§60.753 operational standards for collection systems
-§60.754 test methods
-§60.755 monitoring requirements
-§60.756 reporting and recordkeeping
+SUBJECT → determine GCCS installation status:
+ 
+NO GCCS INSTALLED (NMOC first exceeds 50 Mg/yr):
+  §60.752(b)(1) must install GCCS within 30 months of exceeding threshold
+  §60.752(b)(2) submit GCCS design plan to state within 1 year of exceeding threshold
+  §60.755 monitoring: quarterly surface methane, semi-annual wellhead
+  §60.756(a) initial design plan report
+  §60.756(b) annual reports
+ 
+GCCS INSTALLED AND OPERATING:
+  §60.752(b)(2)(ii) GCCS operational standards
+  §60.753(a) operate GCCS to maintain wellhead pressure <0 inches H2O
+  §60.753(b) monthly wellhead monitoring — temperature, nitrogen, oxygen
+  §60.753(c) quarterly surface methane monitoring
+  §60.753(d) quarterly GCCS performance monitoring
+  §60.754 test methods (Method 2, 3C, 25C)
+  §60.755(a) operational monitoring requirements
+  §60.755(b) surface emission monitoring
+  §60.756(a) initial annual report
+  §60.756(b) annual reports — include wellhead data, surface monitoring, deviations
+  §60.756(c) semi-annual reports if monitoring shows exceedances
+ 
+GCCS REMOVAL (POST-CLOSURE):
+  §60.752(b)(2)(v) GCCS must operate until NMOC <50 Mg/yr for 3 consecutive years
+  Must demonstrate NMOC rate below threshold before removing GCCS
+ 
+LEGACY CONTROLLED LANDFILL (pre-existing GCCS before rule):
+  Previously submitted design plans — certify previously submitted rather than resubmit
+  §60.756(c) annual certification of previously submitted reports
+ 
+40 CFR 62 SUBPART OOO — MSW LANDFILL FEDERAL PLAN (existing landfills)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Q1: Is it an existing MSW landfill (construction before May 30 1991)? NO→use WWW
+Q2: Design capacity ≥2.5 million Mg? NO→not subject
+Q3: NMOC ≥50 Mg/yr? NO→not subject
+ 
+GCCS INSTALLATION REQUIREMENTS:
+  §62.16714(b) GCCS must be installed within 30 months of exceeding NMOC threshold
+  §62.16714(c) GCCS design capacity must handle maximum gas generation rate
+  §62.16714(f) requirements prior to GCCS removal — must demonstrate NMOC <50 Mg/yr
+ 
+GCCS OPERATIONAL STANDARDS:
+  §62.16716(a) operate to maintain negative pressure at each wellhead
+  §62.16716(b) monthly wellhead monitoring — flow rate, pressure, temperature, N2, O2
+  §62.16716(c) address exceedances within 15 days
+  §62.16716(d) quarterly surface methane monitoring (500 ppm action level)
+  §62.16716(e) repair surface exceedances within 60 days
+  §62.16716(f) quarterly GCCS performance monitoring
+  §62.16716(g) minimize emissions during planned shutdowns
+ 
+POST-CLOSURE REQUIREMENTS:
+  §62.16718(b) operate GCCS for 30 years after closure or until NMOC <50 Mg/yr
+  §62.16718(d) continue monitoring requirements after closure
+ 
+MONITORING:
+  §62.16722(a) wellhead monitoring — monthly
+  §62.16722(c) surface monitoring — quarterly
+  §62.16722(e) control device monitoring — continuous
+  §62.16722(f) GCCS flow rate monitoring
+  §62.16722(g) gas collection efficiency monitoring
+  §62.16722(h) NMOCs at control device inlet/outlet
+ 
+REPORTING:
+  §62.16724(a) initial design plan submittal
+  §62.16724(b) initial performance test report
+  §62.16724(c)-(f) annual reports
+  §62.16724(g)-(h) semi-annual compliance reports
+  §62.16724(i)-(l) startup/shutdown/malfunction reports
+  §62.16724(q) LEGACY LANDFILL: certify previously submitted reports rather than resubmit
+ 
+RECORDKEEPING:
+  §62.16726(a) wellhead monitoring records — 5 years
+  §62.16726(b) surface monitoring records — 5 years
+  §62.16726(c) control device records — 5 years
+  §62.16726(d) collection efficiency records
+  §62.16726(e) NMOC calculation records
+  §62.16726(f) design plan and amendments
+  §62.16726(g) equipment maintenance records
+  §62.16726(h) operator certification
+  §62.16726(l) LEGACY LANDFILL: records of previously submitted certifications
+ 
+COLLECTION SYSTEM SITING AND CONSTRUCTION:
+  §62.16728(a) wells must be placed to maximize gas collection
+  §62.16728(b) pipes must be constructed to withstand landfill settlement
+ 
+40 CFR 63 SUBPART AAAA — MSW LANDFILL NESHAP (HAP emissions)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Q1: Is it an MSW landfill? NO→not subject
+Q2: NMOC >34 Mg/yr (for major sources) OR NMOC >50 Mg/yr (for area sources)? 
+    NO→not subject to GCCS requirements
+Q3: Is it at a major HAP source? Determines which NMOC threshold applies
+ 
+COMPLIANCE DATES:
+  §63.1930(b) new sources: comply upon startup
+  §63.1930(b) existing sources: comply per original compliance schedule
+ 
+GCCS REQUIREMENTS:
+  §63.1955(c) minimize emissions from the GCCS — operate to minimize LFG releases
+  §63.1957(a) GCCS must operate continuously except during planned maintenance
+  §63.1958(a) wellhead gas temperature <55°C
+  §63.1958(b) wellhead oxygen content <5% by volume
+  §63.1958(c) wellhead nitrogen content <20% by volume
+  §63.1958(d) monthly wellhead parameter monitoring
+  §63.1958(e) address parameter exceedances within 5 days
+  §63.1958(f) quarterly surface monitoring
+  §63.1958(g) GCCS must operate all collection wells continuously
+ 
+GCCS DESIGN:
+  §63.1959(b)(2) GCCS design must account for settlement and subsidence
+ 
+COLLECTION STANDARDS:
+  §63.1960(a) collection wells spaced to capture all LFG
+  §63.1960(b) wellhead fittings must minimize LFG releases
+  §63.1960(c) pipes must minimize leaks
+  §63.1960(d) GCCS must handle maximum design gas flow
+ 
+MONITORING:
+  §63.1961(a) continuous monitoring of control device operating parameters
+  §63.1961(c) monthly wellhead monitoring
+  §63.1961(e) quarterly surface emission monitoring
+  §63.1961(f) quarterly GCCS performance
+  §63.1961(g) record all monitoring data
+  §63.1961(h) address monitoring exceedances
+ 
+SITING AND CONSTRUCTION:
+  §63.1962(a) wells in waste mass to maximize capture
+  §63.1962(b) pipes sloped to prevent condensate accumulation
+  §63.1962(c) connect new waste areas within 5 years of waste placement
+ 
+SSM PROVISIONS:
+  §63.1964(b) SSM provisions NO LONGER APPLY after September 27 2021
+  Must maintain compliance at all times including startup shutdown malfunction
+ 
+REPORTING:
+  §63.1981 annual compliance report required
+  Include: wellhead monitoring data, surface monitoring, deviations, GCCS performance
+ 
+RECORDKEEPING:
+  §63.1983(a) wellhead monitoring records
+  §63.1983(b) surface monitoring records
+  §63.1983(c) control device operating records
+  §63.1983(d) NMOC calculation records
+  §63.1983(e) design plan and amendments
+  §63.1983(f) startup/shutdown records
+  §63.1983(g) equipment maintenance records
+  §63.1983(h) operator training records
+ 
+LEGACY CONTROLLED LANDFILL distinction:
+  Landfills that had GCCS installed before the rule compliance date
+  §63.1981 reports: certify previously submitted reports rather than full resubmission
+  Must maintain certification records showing previous submissions
  
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 12. 40 CFR 60 SUBPART OOO — NONMETALLIC MINERAL PROCESSING
@@ -624,17 +1149,52 @@ app.post('/check', async (req, res) => {
   }
  
   try {
+    // Search for relevant regulations
     const regs = await searchRegulations(body, 35);
-    const regContext = regs.length > 0
-      ? regs.map(r =>
+ 
+    // Fetch FULL TEXT of the most likely applicable regulations
+    // This allows Gemini to reason through every paragraph, not just memory
+    const fullTextRegs = await fetchApplicableRegTexts(body);
+    console.log(`Using ${fullTextRegs.length} full-text regulations for deep analysis`);
+ 
+    // Build regulation context — full text first, then search results
+    const fullTextContext = fullTextRegs.length > 0
+      ? fullTextRegs.map(r =>
+          `===== FULL REGULATION TEXT: ${r.title} =====\nCFR: 40 CFR Part ${r.part}${r.subpart ? ' Subpart '+r.subpart : ''}\nURL: ${r.url||'N/A'}\n\n${(r.content||'').slice(0, 8000)}\n`
+        ).join('\n' + '='.repeat(60) + '\n')
+      : '';
+ 
+    const searchContext = regs.length > 0
+      ? regs.filter(r => !fullTextRegs.find(f => f.id === r.id))
+           .map(r =>
           `=== ${r.title} ===\nSource: ${r.source === 'federal'
             ? `40 CFR Part ${r.part}${r.subpart ? ' Subpart '+r.subpart : ''}`
-            : r.part}\nURL: ${r.url||'N/A'}\n${(r.content||'').slice(0,1000)}\n`
+            : r.part}\nURL: ${r.url||'N/A'}\n${(r.content||'').slice(0,500)}\n`
         ).join('\n---\n')
-      : 'No database results — using flow chart logic below.';
+      : '';
+ 
+    const regContext = [
+      fullTextContext ? `FULL REGULATION TEXTS (read carefully — reason through every paragraph):\n${fullTextContext}` : '',
+      searchContext ? `ADDITIONAL REGULATIONS FROM DATABASE:\n${searchContext}` : '',
+      (!fullTextContext && !searchContext) ? 'No database results — use flow chart logic and regulatory knowledge.' : ''
+    ].filter(Boolean).join('\n\n');
  
     const controlCtx = buildControlCtx(body.controlDevices);
     const hasDevices = body.controlDevices && body.controlDevices.length > 0;
+ 
+    // Build landfill-specific context
+    const isLandfill = (body.equipmentCategory||'').toLowerCase().includes('landfill');
+    const landfillCtx = isLandfill ? [
+      body.landfillDesignCapacity ? `Landfill design capacity: ${body.landfillDesignCapacity}` : '',
+      body.landfillNmocRate ? `NMOC emission rate: ${body.landfillNmocRate} Mg/yr` : '',
+      body.landfillGccsInstalled ? `GCCS installed: ${body.landfillGccsInstalled}` : '',
+      body.landfillWellCount ? `Number of extraction wells: ${body.landfillWellCount}` : '',
+      body.landfillStatus ? `Landfill status: ${body.landfillStatus}` : '',
+      body.landfillOpenYear ? `Landfill open year: ${body.landfillOpenYear}` : '',
+      body.landfillCloseYear ? `Landfill close year: ${body.landfillCloseYear}` : '',
+      body.landfillControlDevice ? `LFG control device: ${body.landfillControlDevice}` : '',
+      body.landfillGhgEmissions ? `Annual GHG emissions: ${body.landfillGhgEmissions} MT CO2e` : '',
+    ].filter(Boolean).join('\n') : '';
  
     const equipDetails = [
       `Equipment category: ${body.equipmentCategory||'Not specified'}`,
@@ -647,6 +1207,7 @@ app.post('/check', async (req, res) => {
       `Regulated pollutant class: ${body.pollutantClass||'Not specified'}`,
       `SIC code: ${body.sicCode||'Not specified'}`,
       `Control devices:\n${controlCtx}`,
+      landfillCtx ? `LANDFILL-SPECIFIC DETAILS:\n${landfillCtx}` : '',
       body.description ? `Additional info: ${body.description}` : ''
     ].filter(Boolean).join('\n');
  
@@ -663,9 +1224,35 @@ ${TCEQ_FLOW_CHART_LOGIC}
 =====================================================================
 INSTRUCTIONS
 =====================================================================
-1. Use the TCEQ-style flow chart logic above to determine applicability
-   for each regulation. Follow each Q1, Q2, Q3... in order.
-   The first NO answer means that regulation does not apply.
+1. READ THE FULL REGULATION TEXT PROVIDED ABOVE CAREFULLY.
+   The full text of the most likely applicable regulations has been provided.
+   Do NOT rely on memory — read the actual text and reason through every
+   paragraph, table, and condition. Check every exemption. Follow every
+   cross-reference. This is how a permit engineer would actually read the CFR.
+ 
+2. Use the TCEQ-style flow chart logic to structure your analysis.
+   For each regulation: Q1, Q2, Q3... in order. First NO = not subject.
+ 
+3. PARAGRAPH-LEVEL CITATIONS ARE REQUIRED:
+   Do not just cite the subpart. Cite the SPECIFIC PARAGRAPHS that apply
+   to this source based on its characteristics. For example:
+   WRONG: "40 CFR 62 Subpart OOO applies"
+   RIGHT: "§62.16714(b),(c) — GCCS installation within 30 months;
+           §62.16716(a)-(g) — GCCS operational standards;
+           §62.16722(a),(c),(e),(f),(g),(h) — monitoring requirements;
+           §62.16724(a)-(l),(q) — reporting requirements;
+           §62.16726(a)-(h),(l) — recordkeeping requirements"
+   
+   For each applicable regulation, determine which specific paragraphs
+   apply based on the source's characteristics (size, GCCS status,
+   new vs existing, major vs area source, etc.)
+ 
+3. CONDITIONAL LOGIC — only cite paragraphs that actually apply:
+   - If GCCS is installed: cite operational monitoring paragraphs
+   - If GCCS is NOT yet installed: cite installation requirement paragraphs
+   - If legacy controlled landfill: cite certification paragraphs not resubmission
+   - If post-closure: cite post-closure requirement paragraphs
+   - SSM provisions after Sep 27 2021: flag as no longer applicable
  
 2. Only include regulations that are RELEVANT to this equipment type.
    Do not include all 428 regulations — only those plausibly applicable.
@@ -700,10 +1287,10 @@ Respond ONLY with valid JSON:
       "newExisting": "New source|Existing source|N/A|Needs construction date",
       "flowChartResult": "Q1: Yes — CI engine. Q2: Yes — after Jul 11 2005. Q3: Yes — <30 L/cyl. No exemptions apply → SUBJECT",
       "reason": "2-3 sentences explaining determination with specific thresholds and source characteristics",
-      "cite": "§60.4200(a)(2) — applies because CI engine after Jul 11 2005; §60.4205 — emergency emission standards; §60.4207 — ULSD fuel required; §60.4211(f) — 100+50 hr limits; §60.4214(b) — hour meter required",
+      "cite": "§60.4200(a)(2) — applies because CI engine after Jul 11 2005; §60.4205(a) — emergency engine emission standards table; §60.4205(b) — opacity limit 20%; §60.4207 — ULSD <15 ppm sulfur required at all times; §60.4211(a) — operate per manufacturer written instructions; §60.4211(f)(1) — max 100 hrs/yr maintenance/testing; §60.4211(f)(2) — max 50 hrs/yr non-emergency use; §60.4211(f)(3) — non-resettable hour meter required; §60.4214(b) — no initial notification required for emergency engines; §60.4214(b)(1) — maintain hour meter records",
       "keyRequirements": ["Specific requirement 1", "Specific requirement 2", "Specific requirement 3"],
       "controlDeviceNotes": "How each device affects this regulation",
-      "url": "https://www.ecfr.gov/..."
+      "url": "Direct eCFR URL to the specific section — format: https://www.ecfr.gov/current/title-40/chapter-I/subchapter-C/part-60/subpart-IIII/section-60.4205 — for paragraph links add #p-60.4205(a)"
     }
   ],
   "nsrPsd": {
@@ -759,6 +1346,8 @@ Order: applies first, needs-info second, not-applies last.`;
  
     const parsed = JSON.parse(cleaned.slice(s, e+1));
     parsed.regulationsSearched = regs.length;
+    parsed.fullTextRegsUsed = fullTextRegs.length;
+    parsed.fullTextRegNames = fullTextRegs.map(r => `40 CFR Part ${r.part}${r.subpart ? ' Subpart '+r.subpart : ''}`);
  
     try {
       await dbInsert('determinations', {
@@ -778,7 +1367,7 @@ Order: applies first, needs-info second, not-applies last.`;
 });
  
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v11.0 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v13.0 running on port ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL ? 'SET' : 'MISSING'} | Gemini: ${GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
 });
  
