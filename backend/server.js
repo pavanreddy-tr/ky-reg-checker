@@ -240,6 +240,15 @@ Emission standards: NOx in ppmvd at 15% O2, varies by fuel and turbine size
 §60.4330 monitoring: CEMS or parametric monitoring
 §60.4333 performance testing requirements
 §60.4340 notifications and recordkeeping
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+40 CFR 60 SUBPART KKa — LEAD ACID BATTERY MANUFACTURING (newer)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Q1: Is it a lead-acid battery manufacturing plant? NO→not subject
+Q2: Construction commenced AFTER February 23, 2022? 
+  YES→Subpart KKa applies (newer rule)
+  NO→Subpart KK applies (older rule, before Feb 23 2022)
+Do NOT apply both — only one applies based on construction date.
  
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 5. 40 CFR 63 SUBPART YYYY — COMBUSTION TURBINE NESHAP
