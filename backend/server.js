@@ -54,15 +54,15 @@ async function dbRpc(fn, params) {
 }
  
 app.get('/', (req, res) => {
-  res.json({ status: 'EEC AI Assistant API running', version: '13.0' });
+  res.json({ status: 'EEC AI Assistant API running', version: '14.0' });
 });
  
 app.get('/stats', async (req, res) => {
   try {
     const count = await dbCount('regulations');
-    res.json({ regulations_in_database: count, status: 'healthy', version: '13.0' });
+    res.json({ regulations_in_database: count, status: 'healthy', version: '14.0' });
   } catch (err) {
-    res.json({ regulations_in_database: 428, status: 'healthy', version: '13.0', note: 'cached' });
+    res.json({ regulations_in_database: 428, status: 'healthy', version: '14.0', note: 'cached' });
   }
 });
  
@@ -466,6 +466,148 @@ async function fetchApplicableRegTexts(body) {
   // ── ALWAYS: Check GHG for large combustion sources ───────────────────
   if (capMMBtu > 100 || (isBoiler && cap > 50) || isTurbine || cat.includes('cement') || cat.includes('lime') || isLandfill) {
     toFetch.push({ part: '98', subpart: 'C' });     // Stationary combustion GHG
+  }
+ 
+  // ── SIC CODE-BASED REGULATION TRIGGERING ────────────────────────────────
+  // Catches facility-level regulations that equipment-type search misses
+  const sic = (body.sicCode || '').toString().trim();
+  const sicNum = parseInt(sic) || 0;
+ 
+  // Iron and Steel (SIC 3312-3317)
+  if ([3312,3313,3314,3315,3316,3317].includes(sicNum) ||
+      cat.includes('steel') || cat.includes('iron') || cat.includes('electric arc')) {
+    toFetch.push({ part: '63', subpart: 'EEEEE' });
+    toFetch.push({ part: '63', subpart: 'FFFFF' });
+    toFetch.push({ part: '63', subpart: 'YYYYY' });
+    toFetch.push({ part: '60', subpart: 'AA' });
+    toFetch.push({ part: '60', subpart: 'AAa' });
+  }
+ 
+  // Petroleum Refining (SIC 2910-2919)
+  if (sicNum >= 2910 && sicNum <= 2919) {
+    toFetch.push({ part: '60', subpart: 'J' });
+    toFetch.push({ part: '63', subpart: 'CC' });
+    toFetch.push({ part: '63', subpart: 'UUU' });
+    toFetch.push({ part: '68', subpart: 'A' });
+  }
+ 
+  // Chemical Manufacturing (SIC 2800-2899)
+  if (sicNum >= 2800 && sicNum <= 2899) {
+    toFetch.push({ part: '63', subpart: 'FFFF' });
+    toFetch.push({ part: '63', subpart: 'VVVVVV' });
+    toFetch.push({ part: '60', subpart: 'VVa' });
+    toFetch.push({ part: '68', subpart: 'A' });
+  }
+ 
+  // Explosives/TNT (SIC 2892, 2899, 3760)
+  if ([2892,2899,3489,3760,3761,3769].includes(sicNum) ||
+      desc.includes('tnt') || desc.includes('explosive')) {
+    toFetch.push({ part: '63', subpart: 'FFFF' });
+    toFetch.push({ part: '68', subpart: 'A' });
+  }
+ 
+  // Portland Cement (SIC 3241)
+  if (sicNum === 3241) {
+    toFetch.push({ part: '60', subpart: 'F' });
+    toFetch.push({ part: '63', subpart: 'LLL' });
+  }
+ 
+  // Glass (SIC 3211-3290)
+  if (sicNum >= 3211 && sicNum <= 3290) {
+    toFetch.push({ part: '60', subpart: 'CC' });
+    toFetch.push({ part: '63', subpart: 'SSSSSS' });
+  }
+ 
+  // Pulp and Paper (SIC 2611-2679)
+  if (sicNum >= 2611 && sicNum <= 2679) {
+    toFetch.push({ part: '60', subpart: 'BB' });
+    toFetch.push({ part: '60', subpart: 'BBa' });
+    toFetch.push({ part: '63', subpart: 'S' });
+    toFetch.push({ part: '63', subpart: 'MM' });
+  }
+ 
+  // Rubber/Tire (SIC 3011, 3069)
+  if ([3011,3052,3053,3069].includes(sicNum)) {
+    toFetch.push({ part: '63', subpart: 'BBBB' });
+    toFetch.push({ part: '63', subpart: 'XXXX' });
+  }
+ 
+  // Wood Products (SIC 2400-2499)
+  if (sicNum >= 2400 && sicNum <= 2499) {
+    toFetch.push({ part: '63', subpart: 'CCCC' });
+    toFetch.push({ part: '63', subpart: 'DDDD' });
+    toFetch.push({ part: '63', subpart: 'JJ' });
+  }
+ 
+  // Printing (SIC 2700-2796)
+  if (sicNum >= 2700 && sicNum <= 2796) {
+    toFetch.push({ part: '60', subpart: 'QQ' });
+    toFetch.push({ part: '63', subpart: 'KK' });
+  }
+ 
+  // Dry Cleaning (SIC 7212-7216)
+  if ([7212,7215,7216].includes(sicNum)) {
+    toFetch.push({ part: '63', subpart: 'M' });
+  }
+ 
+  // Electroplating (SIC 3471, 3469)
+  if ([3462,3469,3471,3484,3499].includes(sicNum)) {
+    toFetch.push({ part: '63', subpart: 'N' });
+    toFetch.push({ part: '63', subpart: 'IIIIII' });
+    toFetch.push({ part: '63', subpart: 'VVVVVV' });
+  }
+ 
+  // Semiconductor (SIC 3672-3679)
+  if (sicNum >= 3672 && sicNum <= 3679) {
+    toFetch.push({ part: '63', subpart: 'BBBBB' });
+    toFetch.push({ part: '63', subpart: 'WWWWWW' });
+  }
+ 
+  // MSW Landfill (SIC 4953)
+  if (sicNum === 4953) {
+    toFetch.push({ part: '60', subpart: 'WWW' });
+    toFetch.push({ part: '63', subpart: 'AAAA' });
+    toFetch.push({ part: '62', subpart: 'OOO' });
+    toFetch.push({ part: '98', subpart: 'HH' });
+  }
+ 
+  // Wastewater (SIC 4941, 4952)
+  if ([4941,4952].includes(sicNum)) {
+    toFetch.push({ part: '63', subpart: 'VVV' });
+    toFetch.push({ part: '60', subpart: 'O' });
+  }
+ 
+  // Oil and Gas (SIC 1311, 1321, 4922-4925)
+  if ([1311,1321,1381,1382,1389,4922,4923,4924,4925].includes(sicNum)) {
+    toFetch.push({ part: '60', subpart: 'OOOOb' });
+    toFetch.push({ part: '60', subpart: 'OOOOa' });
+    toFetch.push({ part: '63', subpart: 'HHH' });
+  }
+ 
+  // Mining (SIC 1400-1499)
+  if (sicNum >= 1400 && sicNum <= 1499) {
+    toFetch.push({ part: '60', subpart: 'OOO' });
+  }
+ 
+  // Asphalt (SIC 2951, 2952)
+  if ([2951,2952].includes(sicNum)) {
+    toFetch.push({ part: '60', subpart: 'I' });
+  }
+ 
+  // GHG reporting - major sources and large facilities
+  if (isMajor || sicNum === 3312 || sicNum === 3241 ||
+      cat.includes('cement') || cat.includes('lime') || isLandfill ||
+      (sicNum >= 2800 && sicNum <= 2899) || capMMBtu > 100) {
+    toFetch.push({ part: '98', subpart: 'C' });
+    toFetch.push({ part: '98', subpart: 'A' });
+  }
+ 
+  // RMP - chemical/flammable facilities
+  if (desc.includes('ammonia') || desc.includes('chlorine') ||
+      desc.includes('hydrogen fluoride') || desc.includes('propane') ||
+      (sicNum >= 2800 && sicNum <= 2899) ||
+      [2911,2910,1311,1321].includes(sicNum)) {
+    toFetch.push({ part: '68', subpart: 'A' });
   }
  
   // ── Deduplicate and fetch full text ───────────────────────────────────
@@ -1115,6 +1257,36 @@ Must register BEFORE commencing construction
 Annual compliance certification required
  
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+29. 40 CFR 63 SUBPART EEEEE — INTEGRATED IRON AND STEEL NESHAP (MAJOR SOURCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Q1: Is it an integrated iron and steel manufacturing facility? NO→not subject
+    Integrated = facility that uses blast furnace OR electric arc furnace
+    to produce steel from iron ore or scrap, includes all associated operations
+Q2: Is it at a MAJOR HAP source? NO→use Subpart FFFFF (if applicable)
+Q3: Construction commenced after January 5, 2004? New vs existing
+Affected sources: EAF, argon-oxygen decarburization (AOD) vessels, 
+    ladle metallurgy furnace (LMF), continuous casting, reheat furnace,
+    blast furnace, basic oxygen furnace, slab reheat
+§63.7782 emission limits for PM, D/F, Pb, Hg, HCl
+§63.7790 operation and maintenance requirements
+§63.7800 performance testing requirements
+§63.7810 monitoring requirements — baghouse operating parameters
+§63.7821 recordkeeping requirements
+§63.7822 reporting requirements
+NOTE: SIC 3312 major source → Subpart EEEEE almost certainly applies
+NOTE: Subpart YYYYY (area source EAF) does NOT apply to major sources
+ 
+30. 40 CFR 60 SUBPART AAa — EAF NSPS (1983-2022)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Q1: Is it an electric arc furnace (EAF) or AOD vessel? NO→not subject
+Q2: Construction after Aug 17 1983 AND on or before May 16 2022? NO→use AA or AAb
+Subject → PM emission limit 0.0052 gr/dscf from control device
+§60.270a applicability | §60.272a emission limits
+§60.273a opacity standards: 0% control device exit, 6% melt shop fugitives
+§60.274a continuous monitoring of baghouse parameters
+§60.276a recordkeeping and reporting
+ 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NSR/PSD FLOW CHART
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Q1: Is source new or undergoing major modification? NO→NSR/PSD not triggered
@@ -1367,7 +1539,7 @@ Order: applies first, needs-info second, not-applies last.`;
 });
  
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v13.0 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v14.0 running on port ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL ? 'SET' : 'MISSING'} | Gemini: ${GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
 });
  
