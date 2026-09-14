@@ -54,15 +54,15 @@ async function dbRpc(fn, params) {
 }
 
 app.get('/', (req, res) => {
-  res.json({ status: 'EEC AI Assistant API running', version: '15.0' });
+  res.json({ status: 'EEC AI Assistant API running', version: '15.2' });
 });
 
 app.get('/stats', async (req, res) => {
   try {
     const count = await dbCount('regulations');
-    res.json({ regulations_in_database: count, status: 'healthy', version: '15.0' });
+    res.json({ regulations_in_database: count, status: 'healthy', version: '15.2' });
   } catch (err) {
-    res.json({ regulations_in_database: 428, status: 'healthy', version: '15.0', note: 'cached' });
+    res.json({ regulations_in_database: 428, status: 'healthy', version: '15.2', note: 'cached' });
   }
 });
 
@@ -1683,7 +1683,380 @@ Respond ONLY with JSON:
   }
 });
 
+
+// ── PERMIT DRAFT GENERATOR ────────────────────────────────────────────────
+app.post('/permit', async (req, res) => {
+  if (!GEMINI_API_KEY) return res.status(500).json({ error: 'API key not configured.' });
+  const { facility, units } = req.body;
+  if (!facility || !units || !units.length) {
+    return res.status(400).json({ error: 'Provide facility info and at least one emission unit.' });
+  }
+
+  try {
+    // For each unit, generate the applicable requirements using /draft logic
+    const processedUnits = [];
+
+    for (const unit of units) {
+      if (!unit.determination) {
+        processedUnits.push(unit);
+        continue;
+      }
+
+      const applicable = (unit.determination.regulations || [])
+        .filter(r => r.status === 'applies')
+        .map(r => `REG: ${r.name}\nCITATIONS: ${r.cite}\nREQS: ${(r.keyRequirements||[]).join(' | ')}`)
+        .join('\n---\n');
+
+      const equip = `Equipment: ${unit.equipmentCategory||''} ${unit.equipmentType||''}
+Fuel: ${unit.fuelType||''}, Capacity: ${unit.capacity||''}
+Construction: ${unit.constructDate||''}, Source class: ${unit.sourceClass||''}
+Control devices: ${(unit.controlDevices||[]).map(d=>d.type).join(', ')||'None'}
+New/Existing: ${unit.determination.newExistingDetermination||''}`;
+
+      const prompt = `You are an expert Kentucky EEC Division for Air Quality permit engineer.
+Generate Section B permit language matching the exact style and detail of actual EEC issued permits
+such as V-26-015 (Benson Valley Landfill) and V-18-027 (Cooper Power Station).
+
+EMISSION UNIT: ${unit.description || unit.equipmentCategory}
+${equip}
+
+APPLICABLE REGULATIONS:
+${applicable}
+
+CRITICAL REQUIREMENTS FOR EEC PERMIT LANGUAGE:
+
+1. FORMAT: Use "The owner/operator shall" for every condition.
+   End each condition with citation in brackets: [40 CFR 60.4205(a)]
+
+2. COMPLIANCE DEMONSTRATION: Under each operating/emission limit add:
+   "Compliance Demonstration Method: [specific method, instrument, frequency]"
+
+3. CROSS-REFERENCES: Add at end of conditions:
+   "Refer to 4. Specific Monitoring Requirements, 5. Specific Recordkeeping
+   Requirements, and 6. Specific Reporting Requirements."
+
+4. OPERATING LIMITATIONS - include ALL of:
+   - Specific numeric thresholds (temperatures, pressures, concentrations)
+   - Hour limits where applicable (emergency engines: 100+50 hrs/yr)
+   - Fuel spec where required (ULSD <15 ppm sulfur for diesel)
+   - Corrective action timelines (5-day initiation, 15-day correction,
+     60-day root cause, 120-day implementation plan)
+   - SSM provisions if applicable
+
+5. EMISSION LIMITATIONS - include ALL of:
+   - Specific numeric limits with units (gr/dscf, mg/dscm, tpy, ppm)
+   - Opacity limits (% and observation frequency)
+   - Rolling period (12-consecutive-month, calendar year)
+
+6. TESTING REQUIREMENTS - include ALL of:
+   - Initial test timing (within 180 days of startup or within 60 days of
+     achieving maximum production rate)
+   - Test protocol: DEP form 6028 to Frankfort Central Office 60 days prior
+   - Division notification: 30 days prior to test date
+   - Results submittal: 45 days after fieldwork
+   - Specific EPA test method references
+
+7. MONITORING REQUIREMENTS - include ALL of:
+   - Exact parameter (pressure drop, temperature, opacity, flow rate, concentration)
+   - Monitoring device type and calibration requirements
+   - Frequency (continuous, daily, monthly, quarterly, annually)
+   - Acceptable operating range or threshold value
+   - Corrective action: what to do and within what timeframe if threshold exceeded
+
+8. RECORDKEEPING - include ALL of:
+   - Exactly what information each record must contain
+   - Record format (log, non-resettable meter, electronic)
+   - 5-year retention requirement
+   - Must be available for inspection upon request
+
+9. REPORTING - include ALL of:
+   - Semi-annual reports due January 30 and July 30
+   - Annual compliance certification (DEP 7007CC) due January 30
+   - Initial notification requirements and deadlines
+   - Deviation reporting: HAP within 24 hours, criteria within 48 hours
+   - Specific content requirements for each report type
+
+Respond ONLY with valid JSON:
+{
+  "applicableRegs": ["Full regulation names"],
+  "stateOriginReqs": "401 KAR citations as state-origin requirements, or None",
+  "precludedRegs": "Precluded regulations with exclusion basis, or None",
+  "nonApplicableRegs": "Non-applicable regulations with specific exclusion citation, or None",
+  "operatingLimitations": [
+    {
+      "requirement": "The owner/operator shall [full detailed condition]. Compliance Demonstration Method: [method]. Refer to 4. Specific Monitoring Requirements and 5. Specific Recordkeeping Requirements.",
+      "citation": "40 CFR x.xxxx(x)"
+    }
+  ],
+  "emissionLimitations": [{"requirement": "full text", "citation": "cite"}],
+  "testingRequirements": [{"requirement": "full text with method and timing", "citation": "cite"}],
+  "monitoringRequirements": [{"requirement": "full text with parameter, frequency, threshold, action", "citation": "cite"}],
+  "recordkeepingRequirements": [{"requirement": "full text with content, format, 5-year retention", "citation": "cite"}],
+  "reportingRequirements": [{"requirement": "full text with deadlines and content", "citation": "cite"}],
+  "camApplies": false,
+  "camPollutant": "",
+  "camParameter": ""
+}`;
+
+      try {
+        const gemResp = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${GEMINI_API_KEY}`,
+          { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ contents:[{parts:[{text:prompt}]}],
+              generationConfig:{temperature:0.1,maxOutputTokens:4096,responseMimeType:'application/json'} }) }
+        );
+        const gd = await gemResp.json();
+        const raw = gd?.candidates?.[0]?.content?.parts?.[0]?.text||'{}';
+        const clean = raw.replace(/```json/g,'').replace(/```/g,'').trim();
+        const s=clean.indexOf('{'), e=clean.lastIndexOf('}');
+        const parsed = s>=0 ? JSON.parse(clean.slice(s,e+1)) : {};
+        processedUnits.push({
+          ...unit,
+          ...parsed,
+          controlDevices: unit.controlDevices || [],
+          epNumber: unit.epNumber || String(processedUnits.length+1).padStart(2,'0')
+        });
+      } catch(e) {
+        processedUnits.push(unit);
+      }
+
+      // Small delay to avoid rate limits
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    res.json({
+      success: true,
+      facility,
+      units: processedUnits,
+      message: `Permit data ready for ${processedUnits.length} emission unit(s). Download the Word document.`
+    });
+
+  } catch(err) {
+    console.error('Permit error:', err.message);
+    res.status(500).json({ error: 'Server error: '+err.message });
+  }
+});
+
+
+// ── PERMIT DOCX DOWNLOAD ──────────────────────────────────────────────────
+app.post('/permit-docx', async (req, res) => {
+  const { facility, units } = req.body;
+  if (!facility || !units) return res.status(400).json({ error: 'Provide facility and units.' });
+
+  try {
+    const {
+      Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+      HeadingLevel, AlignmentType, WidthType, ShadingType, BorderStyle, UnderlineType
+    } = require('docx');
+
+    function bold(text, size=20) { return new TextRun({ text, bold:true, size }); }
+    function run(text, size=20, opts={}) { return new TextRun({ text, size, ...opts }); }
+    function spacer() { return new Paragraph({ text:'', spacing:{ after:120 } }); }
+    function hr() { return new Paragraph({ text:'', border:{ bottom:{ color:'000000', size:6, style:BorderStyle.SINGLE } }, spacing:{ after:120 } }); }
+
+    function h1(text) {
+      return new Paragraph({ children:[new TextRun({ text, bold:true, size:22, underline:{ type:UnderlineType.SINGLE } })], spacing:{ before:240, after:120 } });
+    }
+    function h2(text) {
+      return new Paragraph({ children:[new TextRun({ text, bold:true, size:20 })], spacing:{ before:200, after:100 } });
+    }
+    function np(text, indent=0) {
+      return new Paragraph({ children:[run(text)], spacing:{ after:100 }, indent: indent ? { left:indent } : undefined });
+    }
+    function li(letter, text, indent=1080) {
+      return new Paragraph({ children:[run(`${letter}.\t${text}`)], indent:{ left:indent, hanging:360 }, spacing:{ after:80 } });
+    }
+    function num(n, text, indent=720) {
+      return new Paragraph({ children:[run(`${n}.\t${text}`)], indent:{ left:indent, hanging:360 }, spacing:{ after:100 } });
+    }
+
+    function cell(text, opts={}) {
+      const { b=false, bg='FFFFFF', width=2000, center=false, size=18 } = opts;
+      return new TableCell({
+        children:[new Paragraph({ children:[new TextRun({ text:String(text||''), bold:b, size, color:'000000' })], alignment: center ? AlignmentType.CENTER : AlignmentType.LEFT, spacing:{ before:60, after:60 } })],
+        shading:{ type:ShadingType.CLEAR, fill:bg },
+        margins:{ top:60, bottom:60, left:100, right:100 },
+        width:{ size:width, type:WidthType.DXA }
+      });
+    }
+    function hcell(text, width=2000) { return cell(text, { b:true, bg:'1F3864', width }); }
+
+    const children = [];
+
+    // Cover page
+    children.push(new Paragraph({ children:[bold('KENTUCKY ENERGY AND ENVIRONMENT CABINET', 22)], alignment:AlignmentType.CENTER, spacing:{ after:80 } }));
+    children.push(new Paragraph({ children:[bold('Department for Environmental Protection', 20)], alignment:AlignmentType.CENTER, spacing:{ after:80 } }));
+    children.push(new Paragraph({ children:[bold('Division for Air Quality', 20)], alignment:AlignmentType.CENTER, spacing:{ after:240 } }));
+    children.push(hr());
+    children.push(new Paragraph({ children:[bold('TITLE V OPERATING PERMIT', 28)], alignment:AlignmentType.CENTER, spacing:{ before:240, after:80 } }));
+    children.push(new Paragraph({ children:[bold('401 KAR 52:020', 22)], alignment:AlignmentType.CENTER, spacing:{ after:240 } }));
+    children.push(hr());
+    children.push(spacer());
+
+    const fields = [
+      ['PERMIT NUMBER:', facility.permitNumber||'V-XX-XXX'],
+      ['PERMITTEE:', facility.permitteeName||''],
+      ['SOURCE NAME:', facility.sourceName||''],
+      ['ADDRESS:', facility.address||''],
+      ['COUNTY:', facility.county||''],
+      ['SIC CODE:', facility.sicCode||''],
+      ['SOURCE ID:', facility.sourceId||''],
+      ['AGENCY INTEREST:', facility.agencyInterest||''],
+      ['ACTIVITY:', facility.activityNumber||''],
+      ['RESPONSIBLE OFFICIAL:', facility.responsibleOfficial||''],
+      ['REGIONAL OFFICE:', facility.regionalOffice||''],
+      ['EFFECTIVE DATE:', facility.effectiveDate||'___/___/______'],
+      ['EXPIRATION DATE:', facility.expirationDate||'___/___/______'],
+    ];
+
+    children.push(new Table({
+      width:{ size:9360, type:WidthType.DXA },
+      borders:{ top:{ style:BorderStyle.NONE }, bottom:{ style:BorderStyle.NONE }, left:{ style:BorderStyle.NONE }, right:{ style:BorderStyle.NONE }, insideH:{ style:BorderStyle.NONE }, insideV:{ style:BorderStyle.NONE } },
+      rows: fields.map(([label, val]) => new TableRow({ children:[
+        new TableCell({ children:[new Paragraph({ children:[bold(label)], spacing:{ before:60, after:60 } })], width:{ size:2880, type:WidthType.DXA }, borders:{ top:{ style:BorderStyle.NONE }, bottom:{ style:BorderStyle.NONE }, left:{ style:BorderStyle.NONE }, right:{ style:BorderStyle.NONE } } }),
+        new TableCell({ children:[new Paragraph({ children:[run(val)], spacing:{ before:60, after:60 } })], width:{ size:6480, type:WidthType.DXA }, borders:{ top:{ style:BorderStyle.NONE }, bottom:{ style:BorderStyle.NONE }, left:{ style:BorderStyle.NONE }, right:{ style:BorderStyle.NONE } } })
+      ]}))
+    }));
+
+    children.push(spacer()); children.push(hr()); children.push(spacer());
+    children.push(new Paragraph({ children:[bold('SIGNATURE:', 20)], spacing:{ after:480 } }));
+    children.push(np('__________________________________________________ \t\t Date: _______________'));
+    children.push(np(facility.reviewerName||'Reviewer Name'));
+    children.push(np('Permit Review Branch, Division for Air Quality'));
+    children.push(spacer());
+    children.push(np('__________________________________________________ \t\t Date: _______________'));
+    children.push(np(facility.supervisorName||'Section Supervisor'));
+    children.push(np('Permit Review Branch, Division for Air Quality'));
+    children.push(spacer());
+
+    // TOC
+    children.push(h1('TABLE OF CONTENTS'));
+    const toc = [['A','Permit Authorization'],['B','Emission Points, Emission Units, Applicable Regulations, and Operating Conditions'],['C','Insignificant Activities'],['D','Source Emission Limitations and Testing Requirements'],['E','Source Control Equipment Requirements'],['F','Monitoring, Recordkeeping, and Reporting Requirements'],['G','General Provisions']];
+    children.push(new Table({ width:{ size:9360, type:WidthType.DXA }, rows:[
+      new TableRow({ children:[hcell('SECTION',1080),hcell('DESCRIPTION',7200),hcell('PAGE',1080)] }),
+      ...toc.map(([s,d]) => new TableRow({ children:[cell(s,{width:1080,center:true}),cell(d,{width:7200}),cell('—',{width:1080,center:true})] }))
+    ]}));
+    children.push(spacer());
+
+    // Section A
+    children.push(hr());
+    children.push(h1('SECTION A - PERMIT AUTHORIZATION'));
+    children.push(np('Pursuant to a duly submitted application the Kentucky Energy and Environment Cabinet (Cabinet) hereby authorizes the operation of the equipment described herein in accordance with the terms and conditions of this permit. This permit was issued under the provisions of Kentucky Revised Statutes (KRS) Chapter 224 and regulations promulgated pursuant thereto.'));
+    children.push(spacer());
+    children.push(np('The permittee shall not construct, reconstruct, or modify any affected facilities without first submitting a complete application and receiving a permit for the planned activity from the permitting authority, except as provided in this permit or in 401 KAR 52:020, Title V Permits.'));
+    children.push(spacer());
+    children.push(np('Issuance of this permit does not relieve the permittee from the responsibility of obtaining any other permits, licenses, or approvals required by the Cabinet or any other federal, state, or local agency.'));
+
+    // Section B
+    children.push(hr());
+    children.push(h1('SECTION B - EMISSION POINTS, EMISSION UNITS, APPLICABLE REGULATIONS, AND OPERATING CONDITIONS'));
+    children.push(spacer());
+
+    units.forEach((unit, idx) => {
+      const unum = String(idx+1).padStart(2,'0');
+      const ep = unit.epNumber || unum;
+      children.push(new Paragraph({ children:[bold(`Emission Unit ${unum} (${ep})  `,20),run(unit.description||'',20)], spacing:{ before:240, after:100 } }));
+      children.push(new Paragraph({ children:[bold('APPLICABLE REGULATIONS: ',20),run((unit.applicableRegs||[]).join('; '),20)], spacing:{ after:80 } }));
+      children.push(new Paragraph({ children:[bold('STATE-ORIGIN REQUIREMENTS: ',20),run(unit.stateOriginReqs||'None',20)], spacing:{ after:80 } }));
+      children.push(new Paragraph({ children:[bold('PRECLUDED REGULATIONS: ',20),run(unit.precludedRegs||'None',20)], spacing:{ after:80 } }));
+      children.push(new Paragraph({ children:[bold('NON-APPLICABLE REGULATIONS: ',20),run(unit.nonApplicableRegs||'None',20)], spacing:{ after:80 } }));
+      children.push(spacer());
+
+      const sections = [
+        ['1.\tOperating Limitations:', unit.operatingLimitations],
+        ['2.\tEmission Limitations:', unit.emissionLimitations],
+        ['3.\tTesting Requirements:', unit.testingRequirements],
+        ['4.\tSpecific Monitoring Requirements:', unit.monitoringRequirements],
+        ['5.\tSpecific Recordkeeping Requirements:', unit.recordkeepingRequirements],
+        ['6.\tSpecific Reporting Requirements:', unit.reportingRequirements],
+      ];
+
+      sections.forEach(([title, reqs]) => {
+        children.push(h2(title));
+        if (reqs && reqs.length) {
+          reqs.forEach((req, i) => {
+            children.push(new Paragraph({ children:[run(`${String.fromCharCode(97+i)}.\t${req.requirement||req}`,20)], indent:{ left:720, hanging:360 }, spacing:{ after:80 } }));
+            if (req.citation) children.push(new Paragraph({ children:[run(`[${req.citation}]`,18,{ italics:true, color:'444444' })], indent:{ left:1080 }, spacing:{ after:60 } }));
+          });
+        } else {
+          children.push(np('None.', 720));
+        }
+      });
+
+      children.push(h2('7.\tSpecific Control Equipment Operating Conditions:'));
+      if (unit.controlDevices && unit.controlDevices.length) {
+        unit.controlDevices.forEach((d,i) => {
+          children.push(new Paragraph({ children:[run(`${String.fromCharCode(97+i)}.\t${d.type||d} shall be operated and maintained per manufacturer specifications at all times when the associated emission unit is in operation.`,20)], indent:{ left:720, hanging:360 }, spacing:{ after:80 } }));
+        });
+      } else {
+        children.push(np('N/A — No add-on control devices installed.', 720));
+      }
+      children.push(hr());
+    });
+
+    // Section C
+    children.push(h1('SECTION C - INSIGNIFICANT ACTIVITIES'));
+    children.push(np('The following listed activities have been determined to be insignificant activities for this source pursuant to 401 KAR 52:020, Section 6.'));
+    children.push(np('(None identified — permittee to provide list with application)', 360));
+
+    // Section D
+    children.push(hr());
+    children.push(h1('SECTION D - SOURCE EMISSION LIMITATIONS AND TESTING REQUIREMENTS'));
+    children.push(num(1,'As required by 401 KAR 52:020, Section 26; compliance with annual emissions limitations shall be based on emissions for any twelve (12) consecutive months.'));
+    children.push(num(2,'Facility-wide potential to emit shall comply with applicable major source thresholds as specified in Section B applicable requirements.'));
+
+    // Section E
+    children.push(hr());
+    children.push(h1('SECTION E - SOURCE CONTROL EQUIPMENT REQUIREMENTS'));
+    children.push(np('Pursuant to 401 KAR 50:055, Section 2(5), at all times, including periods of startup, shutdown and malfunction, owners and operators shall, to the extent practicable, maintain and operate any affected facility including associated air pollution control equipment in a manner consistent with good air pollution control practice for minimizing emissions.'));
+
+    // Section F
+    children.push(hr());
+    children.push(h1('SECTION F - MONITORING, RECORDKEEPING, AND REPORTING REQUIREMENTS'));
+    children.push(num(1,'The permittee shall compile records of required monitoring information including: date, time, and place of sampling; analyses performance dates; company performing analyses; analytical techniques; analyses results; and operating conditions during sampling. [401 KAR 52:020, Section 26]'));
+    children.push(num(2,'Records of all required monitoring data shall be retained for a period of five (5) years and made available for inspection upon request. [401 KAR 52:020, Section 26]'));
+    children.push(num(3,'The permittee shall allow authorized representatives of the Cabinet to enter premises, access and copy records, and sample or monitor substances during reasonable times. [401 KAR 52:020, Section 3(1)h]'));
+    children.push(num(4,'Semi-annual summary reports are due by January 30th and July 30th of each year. All reports shall be certified by a responsible official pursuant to 401 KAR 52:020, Section 23. All deviations from permit requirements shall be clearly identified. [401 KAR 52:020, Section 26]'));
+    children.push(num(5,'The permittee shall promptly report deviations from permit requirements. HAP/toxic emissions exceeding limits for more than one hour shall be reported within 24 hours. Other regulated pollutant emissions exceeding limits for more than two hours shall be reported within 48 hours.'));
+    children.push(num(6,'Annual compliance certification (DEP 7007CC) shall be submitted by January 30th each year to the Division for Air Quality Regional Office and U.S. EPA Region 4. [401 KAR 52:020, Section 21]'));
+
+    // Section G
+    children.push(hr());
+    children.push(h1('SECTION G - GENERAL PROVISIONS'));
+    children.push(num(1,'General Compliance Requirements'));
+    children.push(li('a','The permittee shall comply with all conditions of this permit. Noncompliance is grounds for enforcement action including permit termination, revocation, or denial. [401 KAR 52:020, Section 3(1)(b)]'));
+    children.push(li('b','This permit is not transferable. Future owners shall obtain a new permit. [401 KAR 52:020, Section 12]'));
+    children.push(li('c','This permit shall remain in effect for five (5) years. A renewal application must be submitted at least six (6) months prior to expiration. [401 KAR 52:020, Section 12]'));
+    children.push(li('d','This permit does not convey property rights or exclusive privileges. [401 KAR 52:020, Section 1a-9]'));
+    children.push(num(2,'Emergency Provisions'));
+    children.push(li('a','An emergency constitutes an affirmative defense to noncompliance if the permittee demonstrates: (1) an emergency occurred and the cause is identified; (2) the facility was properly operated; (3) reasonable steps were taken to minimize excess emissions; and (4) the Division was notified promptly. [401 KAR 52:020, Section 24(1)]'));
+    children.push(num(3,'Ozone Depleting Substances'));
+    children.push(li('a','The permittee shall comply with 40 CFR 82, Subpart F standards for refrigerant recycling and emissions reduction. Persons opening appliances shall comply with 40 CFR 82.156. Equipment shall meet 40 CFR 82.158. Technicians shall be certified per 40 CFR 82.161.'));
+    children.push(num(4,'Risk Management Provisions'));
+    children.push(li('a','The permittee shall comply with all applicable requirements of 401 KAR Chapter 68, Chemical Accident Prevention (40 CFR Part 68). If required, a Risk Management Plan shall be submitted to U.S. EPA.'));
+
+    const doc = new Document({
+      sections:[{
+        properties:{ page:{ size:{ width:12240, height:15840 }, margin:{ top:1080, bottom:1080, left:1260, right:1260 } } },
+        children
+      }]
+    });
+
+    const buf = await Packer.toBuffer(doc);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${(facility.permitNumber||'draft').replace(/[^a-zA-Z0-9-]/g,'_')}_Draft_Permit.docx"`,
+      'Content-Length': buf.length
+    });
+    res.end(buf);
+
+  } catch(err) {
+    console.error('DOCX error:', err.message);
+    res.status(500).json({ error: 'DOCX error: '+err.message });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v15.0 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v15.2 running on port ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL ? 'SET' : 'MISSING'} | Gemini: ${GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
 });
