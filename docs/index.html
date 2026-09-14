@@ -17,23 +17,23 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-50); color: var(--gray-900); min-height: 100vh; }
- 
+
   .topbar { background: var(--blue); padding: 0 1.5rem; display: flex; align-items: center; height: 52px; gap: 12px; }
   .topbar-logo { font-size: 14px; font-weight: 700; color: white; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px; }
   .topbar-title { font-size: 15px; font-weight: 500; color: white; }
   .topbar-sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-left: 2px; }
   .topbar-right { margin-left: auto; }
   .db-status { font-size: 11px; color: rgba(255,255,255,0.75); background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; }
- 
+
   .tabs { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 0 1.5rem; display: flex; }
   .tab { padding: 12px 16px; font-size: 13px; font-weight: 500; color: var(--gray-500); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
   .tab:hover { color: var(--gray-700); }
   .tab.active { color: var(--blue-mid); border-bottom-color: var(--blue-mid); }
- 
+
   .layout { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 100px); }
   .sidebar { background: var(--white); border-right: 1px solid var(--gray-200); padding: 1.25rem; overflow-y: auto; }
   .main { padding: 1.25rem; overflow-y: auto; }
- 
+
   .section-title { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px; margin-top: 16px; }
   .section-title:first-child { margin-top: 0; }
   .field { margin-bottom: 10px; }
@@ -45,7 +45,7 @@
   .field .err { font-size: 11px; color: var(--red); margin-top: 3px; }
   .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .divider { height: 1px; background: var(--gray-100); margin: 14px 0; }
- 
+
   /* Control devices */
   .control-devices-section { margin-bottom: 10px; }
   .device-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; position: relative; }
@@ -59,63 +59,63 @@
   .device-field select:focus, .device-field input:focus { border-color: var(--blue-mid); }
   .add-device-btn { width: 100%; padding: 7px; font-size: 12px; font-weight: 500; background: var(--white); color: var(--blue-mid); border: 1px dashed var(--blue-border); border-radius: 7px; cursor: pointer; margin-top: 4px; }
   .add-device-btn:hover { background: var(--blue-light); }
- 
+
   /* Buttons */
   .run-btn { width: 100%; padding: 10px; font-size: 14px; font-weight: 600; background: var(--blue-mid); color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s; margin-top: 4px; }
   .run-btn:hover { opacity: 0.88; }
   .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
   .sec-btn { width: 100%; padding: 8px; font-size: 12px; font-weight: 500; background: var(--gray-100); color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 7px; cursor: pointer; margin-top: 6px; }
   .sec-btn:hover { background: var(--gray-200); }
- 
+
   /* Status */
   .status { padding: 10px 14px; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .status.loading { background: var(--blue-light); border: 1px solid var(--blue-border); color: var(--blue); }
   .status.error { background: var(--red-light); border: 1px solid #fecaca; color: var(--red); }
   .spinner { width: 14px; height: 14px; border: 2px solid var(--blue-border); border-top-color: var(--blue-mid); border-radius: 50%; flex-shrink: 0; animation: spin 0.7s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
- 
+
   /* Empty state */
   .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 350px; text-align: center; padding: 2rem; }
   .empty-icon { font-size: 44px; margin-bottom: 1rem; opacity: 0.2; }
   .empty-state h3 { font-size: 15px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
   .empty-state p { font-size: 13px; color: var(--gray-400); max-width: 300px; line-height: 1.6; }
- 
+
   /* Results */
   .results-meta { margin-bottom: 12px; }
   .results-meta h3 { font-size: 16px; font-weight: 600; }
   .results-meta p { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
- 
+
   .summary-card { background: var(--blue-light); border: 1px solid var(--blue-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; font-size: 13px; color: #1e40af; line-height: 1.6; }
- 
+
   .new-existing-card { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
   .new-existing-card .ne-label { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
   .new-existing-card .ne-value { font-size: 12px; color: var(--gray-700); line-height: 1.5; }
- 
+
   .info-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
   .info-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px 14px; }
   .info-card .label { font-size: 11px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
   .info-card .value { font-size: 13px; color: var(--gray-800); font-weight: 500; }
   .info-card .sub { font-size: 11px; color: var(--gray-500); margin-top: 3px; line-height: 1.4; }
- 
+
   .counts-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
   .count-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
   .count-badge.applies { background: var(--green-light); color: var(--green); }
   .count-badge.needs { background: var(--amber-light); color: var(--amber); }
   .count-badge.not { background: var(--gray-100); color: var(--gray-500); }
- 
+
   .missing-info { background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px; }
   .missing-info .mi-title { font-size: 12px; font-weight: 600; color: #854d0e; margin-bottom: 5px; }
   .missing-info li { font-size: 12px; color: #92400e; padding: 1px 0; list-style: none; }
   .missing-info li::before { content: '• '; }
- 
+
   .section-label { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 7px; }
- 
+
   .reg-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; transition: box-shadow 0.15s; }
   .reg-card:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.07); }
   .reg-card.applies { border-left: 3px solid #16a34a; }
   .reg-card.needs-info { border-left: 3px solid #d97706; }
   .reg-card.not-applies { opacity: 0.55; }
- 
+
   .reg-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .reg-left { flex: 1; min-width: 0; }
   .reg-name { font-size: 13px; font-weight: 600; color: var(--gray-900); }
@@ -124,15 +124,17 @@
   .reg-tag { font-size: 10px; color: var(--gray-400); background: var(--gray-100); padding: 1px 6px; border-radius: 3px; }
   .reg-tag.new { background: #dbeafe; color: #1d4ed8; }
   .reg-tag.existing { background: #f3e8ff; color: #7e22ce; }
- 
+
   .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
   .badge.applies { background: var(--green-light); color: var(--green); }
   .badge.not-applies { background: var(--gray-100); color: var(--gray-500); }
   .badge.needs-info { background: var(--amber-light); color: var(--amber); }
- 
+
   .reg-exemption { font-size: 11px; color: var(--gray-400); margin-top: 6px; font-style: italic; }
   .reg-reason { font-size: 12px; color: var(--gray-600); line-height: 1.55; margin-top: 6px; }
-  .reg-cite { font-size: 11px; color: var(--blue-mid); margin-top: 5px; font-family: 'Courier New', monospace; line-height: 1.5; }
+  .reg-cite { font-size: 11px; color: var(--blue-mid); margin-top: 5px; font-family: 'Courier New', monospace; line-height: 1.8; }
+  .reg-cite a { color: var(--blue-mid); text-decoration: none; border-bottom: 1px dotted var(--blue-border); }
+  .reg-cite a:hover { background: var(--blue-light); border-radius: 2px; }
   .reg-reqs { margin-top: 6px; }
   .req-title { font-size: 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
   .reg-req { font-size: 11px; color: var(--gray-600); padding: 1px 0; }
@@ -140,7 +142,7 @@
   .reg-device-note { font-size: 11px; color: #7e22ce; margin-top: 5px; background: #f3e8ff; padding: 4px 8px; border-radius: 4px; }
   .reg-link { font-size: 11px; color: var(--blue-mid); text-decoration: none; display: inline-block; margin-top: 4px; }
   .reg-link:hover { text-decoration: underline; }
- 
+
   /* CAM card */
   .cam-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
   .cam-device { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-100); }
@@ -150,36 +152,20 @@
   .cam-criterion.pass { color: var(--green); }
   .cam-criterion.fail { color: var(--red); }
   .cam-conclusion { font-size: 11px; font-weight: 600; margin-top: 4px; }
- 
+
   .action-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
   .action-btn { padding: 8px 14px; font-size: 12px; font-weight: 500; background: var(--gray-100); border: 1px solid var(--gray-200); border-radius: 7px; cursor: pointer; color: var(--gray-700); }
   .action-btn:hover { background: var(--gray-200); }
- 
- 
-  /* NSR/PSD card */
-  .nsr-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
-  .nsr-card.psd-applies { border-left: 3px solid var(--red); }
-  .nsr-card.psd-needs { border-left: 3px solid var(--amber); }
-  .nsr-title { font-size: 13px; font-weight: 600; color: var(--gray-900); margin-bottom: 8px; }
-  .nsr-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-  .nsr-item { padding: 8px 10px; border-radius: 6px; background: var(--gray-50); border: 1px solid var(--gray-200); }
-  .nsr-item-label { font-size: 10px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
-  .nsr-item-status { font-size: 12px; font-weight: 600; }
-  .nsr-item-status.applies { color: var(--red); }
-  .nsr-item-status.not { color: var(--green); }
-  .nsr-item-status.needs { color: var(--amber); }
-  .nsr-item-reason { font-size: 11px; color: var(--gray-500); margin-top: 3px; line-height: 1.4; }
-  .nsr-cite { font-size: 11px; color: var(--blue-mid); margin-top: 6px; font-family: monospace; }
- 
+
   .footer-note { font-size: 11px; color: var(--gray-400); margin-top: 1.5rem; line-height: 1.6; text-align: center; }
- 
+
   /* History */
   .history-item { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; cursor: pointer; }
   .history-item:hover { border-color: var(--blue-border); }
   .history-item .h-type { font-size: 13px; font-weight: 500; }
   .history-item .h-date { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
   .history-item .h-badges { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
- 
+
   @media (max-width: 768px) {
     .layout { grid-template-columns: 1fr; }
     .sidebar { border-right: none; border-bottom: 1px solid var(--gray-200); }
@@ -188,24 +174,25 @@
 </style>
 </head>
 <body>
- 
+
 <div class="topbar">
   <span class="topbar-logo">EEC</span>
   <span class="topbar-title">AI Regulation Assistant</span>
   <span class="topbar-sub">— Kentucky Division for Air Quality</span>
   <div class="topbar-right"><span class="db-status" id="dbStatus">Connecting...</span></div>
 </div>
- 
+
 <div class="tabs">
   <div class="tab active" onclick="switchTab('checker')">Regulation Checker</div>
   <div class="tab" onclick="switchTab('history')">Past Determinations</div>
   <div class="tab" onclick="switchTab('database')">Database Status</div>
+  <div class="tab" onclick="switchTab('chat')">💬 AI Chat</div>
 </div>
- 
+
 <div id="tab-checker" class="layout">
   <div class="sidebar">
     <div class="section-title">Equipment / Source</div>
- 
+
     <div class="field">
       <label>Equipment category *</label>
       <select id="equipmentCategory" onchange="updatePlaceholder()">
@@ -264,48 +251,48 @@
       </select>
       <div class="err" id="e-equipmentCategory"></div>
     </div>
- 
+
     <div class="field">
       <label>Equipment use / operation *</label>
       <input type="text" id="equipmentType" placeholder="e.g. Emergency standby generator, continuous process..." />
       <div class="err" id="e-equipmentType"></div>
     </div>
- 
+
     <div class="field">
       <label>Fuel type / process medium</label>
       <input type="text" id="fuelType" placeholder="e.g. No. 2 diesel, natural gas, coal, waste solvent..." />
     </div>
- 
+
     <div class="field">
       <label>Capacity / size *</label>
       <input type="text" id="capacity" placeholder="e.g. 500 HP, 50 MMBtu/hr, 100 tons/hr, 10,000 gal..." />
       <div class="hint">Include units — HP, MMBtu/hr, tons/hr, gallons, MW, etc.</div>
       <div class="err" id="e-capacity"></div>
     </div>
- 
+
     <div class="field">
       <label>Construction commencement date *</label>
       <input type="text" id="constructDate" placeholder="e.g. March 2019, 2019, January 15 2020" />
       <div class="hint">New vs existing is auto-determined from this date for each regulation</div>
       <div class="err" id="e-constructDate"></div>
     </div>
- 
+
     <div class="field">
       <label>Model year (engines/turbines only)</label>
       <input type="text" id="modelYear" placeholder="e.g. 2019" />
     </div>
- 
+
     <div class="divider"></div>
     <div class="section-title">Control Devices</div>
- 
+
     <div class="control-devices-section">
       <div id="deviceList"></div>
       <button class="add-device-btn" onclick="addDevice()">+ Add control device</button>
     </div>
- 
+
     <div class="divider"></div>
     <div class="section-title">Source Classification</div>
- 
+
     <div class="field">
       <label>HAP source classification</label>
       <select id="sourceClass">
@@ -314,7 +301,7 @@
         <option value="Area source for HAP (below major source thresholds)">Area source — HAP (below major thresholds)</option>
       </select>
     </div>
- 
+
     <div class="field">
       <label>Criteria pollutant classification</label>
       <select id="pollutantClass">
@@ -323,21 +310,21 @@
         <option value="Minor source for criteria pollutants (PTE below 100 tpy)">Minor source — criteria pollutants (PTE &lt;100 tpy)</option>
       </select>
     </div>
- 
+
     <div class="field">
       <label>SIC code (if known)</label>
       <input type="text" id="sicCode" placeholder="e.g. 4899, 2911, 3559..." />
     </div>
- 
+
     <div class="field">
       <label>Additional details / questions</label>
       <textarea id="description" placeholder="Any additional context, specific questions, or unusual aspects of this source..."></textarea>
     </div>
- 
+
     <button class="run-btn" id="checkBtn" onclick="runCheck()">Determine applicable regulations</button>
     <button class="sec-btn" onclick="clearForm()">Clear form</button>
   </div>
- 
+
   <div class="main" id="mainPanel">
     <div class="empty-state">
       <div class="empty-icon">⚖️</div>
@@ -346,12 +333,31 @@
     </div>
   </div>
 </div>
- 
+
 <div id="tab-history" style="display:none; padding:1.5rem;">
   <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;">Past Determinations</h2>
   <div id="historyList"><div style="color:var(--gray-400);font-size:13px;">Loading...</div></div>
 </div>
- 
+
+<div id="tab-chat" style="display:none;padding:1.5rem;max-width:900px;">
+  <h2 style="font-size:16px;font-weight:600;margin-bottom:4px;">AI Regulation Chat</h2>
+  <p style="font-size:13px;color:var(--gray-400);margin-bottom:16px;">Describe your equipment in plain language. The AI will ask follow-up questions and determine applicable regulations.</p>
+  <div id="chatMessages" style="min-height:300px;max-height:480px;overflow-y:auto;border:1px solid var(--gray-200);border-radius:10px;padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:12px;background:var(--gray-50);">
+    <div style="display:flex;justify-content:flex-start;">
+      <div style="max-width:85%;padding:10px 14px;border-radius:12px 12px 12px 4px;font-size:13px;line-height:1.6;background:white;border:1px solid var(--gray-200);">
+        Hello! Tell me about your equipment — for example: <em>"I have a 500 HP diesel emergency generator constructed in 2019 at a major source in Jefferson County."</em><br><br>I'll determine which regulations apply.
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;margin-bottom:8px;">
+    <textarea id="chatInput" placeholder="Describe your equipment or ask a follow-up question..." rows="2" style="flex:1;padding:10px 14px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;resize:none;font-family:inherit;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+    <button onclick="sendChat()" style="padding:10px 20px;background:var(--blue-mid);color:white;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;">Send</button>
+  </div>
+  <div style="text-align:right;">
+    <button onclick="clearChat()" style="background:none;border:1px solid var(--gray-200);padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--gray-400);">Clear conversation</button>
+  </div>
+</div>
+
 <div id="tab-database" style="display:none;padding:1.5rem;max-width:600px;">
   <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;">Regulation Database Status</h2>
   <div id="dbPanel"><div style="color:var(--gray-400);font-size:13px;">Loading...</div></div>
@@ -369,13 +375,13 @@
     </div>
   </div>
 </div>
- 
+
 <script>
 const BACKEND_URL = 'https://ky-reg-checker-api.onrender.com';
- 
+
 // Device management
 let deviceCount = 0;
- 
+
 function addDevice() {
   deviceCount++;
   const id = deviceCount;
@@ -438,12 +444,12 @@ function addDevice() {
     </div>`;
   document.getElementById('deviceList').insertAdjacentHTML('beforeend', deviceHTML);
 }
- 
+
 function removeDevice(id) {
   const el = document.getElementById('device-' + id);
   if (el) el.remove();
 }
- 
+
 function getDevices() {
   const devices = [];
   document.querySelectorAll('.device-card').forEach(card => {
@@ -459,18 +465,18 @@ function getDevices() {
   });
   return devices;
 }
- 
+
 // Tab switching
 function switchTab(tab) {
-  ['checker','history','database'].forEach(t => {
+  const allTabs = ['checker','history','database','chat'];
+  allTabs.forEach((t, i) => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = t === tab ? (t === 'checker' ? 'grid' : 'block') : 'none';
-    document.querySelectorAll('.tab')[['checker','history','database'].indexOf(t)]?.classList.toggle('active', t === tab);
+    const tabEl = document.querySelectorAll('.tab')[i];
+    if (tabEl) tabEl.classList.toggle('active', t === tab);
   });
-  if (tab === 'history') loadHistory();
-  if (tab === 'database') loadDbStatus();
 }
- 
+
 async function checkDbStatus() {
   try {
     const resp = await fetch(BACKEND_URL + '/stats');
@@ -481,7 +487,7 @@ async function checkDbStatus() {
       : '⚠️ Database empty';
   } catch (e) { document.getElementById('dbStatus').textContent = '🔴 Backend offline'; }
 }
- 
+
 async function loadDbStatus() {
   const panel = document.getElementById('dbPanel');
   try {
@@ -500,7 +506,7 @@ async function loadDbStatus() {
     panel.innerHTML = '<div style="color:var(--red);font-size:13px;">Could not connect to backend.</div>';
   }
 }
- 
+
 async function loadHistory() {
   const list = document.getElementById('historyList');
   try {
@@ -518,7 +524,7 @@ async function loadHistory() {
     }).join('');
   } catch(e) { list.innerHTML = '<div style="color:var(--red);font-size:13px;">Could not load history.</div>'; }
 }
- 
+
 function updatePlaceholder() {
   const cat = document.getElementById('equipmentCategory').value;
   const el = document.getElementById('equipmentType');
@@ -536,14 +542,14 @@ function updatePlaceholder() {
   };
   if (map[cat]) el.placeholder = map[cat];
 }
- 
+
 // Validation
 const REQ = { equipmentCategory:'Select equipment category', equipmentType:'Describe the use or operation', capacity:'Enter capacity with units', constructDate:'Enter construction commencement date' };
 Object.keys(REQ).forEach(id => {
   const el = document.getElementById(id);
   if (el) ['change','input'].forEach(ev => el.addEventListener(ev, () => { const e = document.getElementById('e-'+id); if(e && el.value) e.textContent=''; }));
 });
- 
+
 function validate() {
   let ok = true;
   Object.entries(REQ).forEach(([id, msg]) => {
@@ -554,24 +560,36 @@ function validate() {
   });
   return ok;
 }
- 
+
+function updateEquipmentFields() {
+  const cat = document.getElementById('equipmentCategory').value;
+  const landfillSection = document.getElementById('landfillSection');
+  if (landfillSection) {
+    landfillSection.style.display = cat.toLowerCase().includes('landfill') ? 'block' : 'none';
+  }
+}
+
 function clearForm() {
   ['equipmentCategory','sourceClass','pollutantClass'].forEach(id => { const el=document.getElementById(id); if(el) el.selectedIndex=0; });
   ['equipmentType','fuelType','capacity','constructDate','modelYear','sicCode','description'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   Object.keys(REQ).forEach(id => { const e=document.getElementById('e-'+id); if(e) e.textContent=''; });
   document.getElementById('deviceList').innerHTML = '';
   deviceCount = 0;
+  // Clear landfill fields
+  ['landfillDesignCapacity','landfillNmocRate','landfillWellCount','landfillGhgEmissions','landfillOpenYear','landfillCloseYear'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  ['landfillGccsInstalled','landfillControlDevice','landfillStatus'].forEach(id => { const el=document.getElementById(id); if(el) el.selectedIndex=0; });
+  const ls=document.getElementById('landfillSection'); if(ls) ls.style.display='none';
   document.getElementById('mainPanel').innerHTML = `<div class="empty-state"><div class="empty-icon">⚖️</div><h3>Enter source details to get started</h3><p>Fill in equipment details and construction date. New vs existing is auto-determined for each regulation.</p></div>`;
 }
- 
+
 async function runCheck() {
   if (!validate()) return;
   const btn = document.getElementById('checkBtn');
   btn.disabled = true; btn.textContent = 'Analyzing...';
- 
+
   const panel = document.getElementById('mainPanel');
   panel.innerHTML = `<div class="status loading"><div class="spinner"></div>Searching regulation database and analyzing applicability (exemptions checked first)...</div>`;
- 
+
   const devices = getDevices();
   const payload = {
     equipmentCategory: document.getElementById('equipmentCategory').value,
@@ -584,9 +602,19 @@ async function runCheck() {
     pollutantClass:    document.getElementById('pollutantClass').value,
     sicCode:           document.getElementById('sicCode').value,
     description:       document.getElementById('description').value,
-    controlDevices:    devices
+    controlDevices:    devices,
+    // Landfill-specific fields
+    landfillDesignCapacity: document.getElementById('landfillDesignCapacity')?.value || '',
+    landfillNmocRate:       document.getElementById('landfillNmocRate')?.value || '',
+    landfillGccsInstalled:  document.getElementById('landfillGccsInstalled')?.value || '',
+    landfillWellCount:      document.getElementById('landfillWellCount')?.value || '',
+    landfillControlDevice:  document.getElementById('landfillControlDevice')?.value || '',
+    landfillStatus:         document.getElementById('landfillStatus')?.value || '',
+    landfillGhgEmissions:   document.getElementById('landfillGhgEmissions')?.value || '',
+    landfillOpenYear:       document.getElementById('landfillOpenYear')?.value || '',
+    landfillCloseYear:      document.getElementById('landfillCloseYear')?.value || '',
   };
- 
+
   try {
     const resp = await fetch(BACKEND_URL + '/check', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -600,7 +628,7 @@ async function runCheck() {
   }
   btn.disabled=false; btn.textContent='Determine applicable regulations';
 }
- 
+
 function renderResults(panel, data, payload) {
   const regs = data.regulations || [];
   const applies = regs.filter(r => r.status === 'applies');
@@ -608,15 +636,19 @@ function renderResults(panel, data, payload) {
   const notApp  = regs.filter(r => r.status === 'not-applies');
   const now = new Date().toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'});
   const deviceCount = payload.controlDevices?.length || 0;
- 
-  let html = `<div class="results-meta"><h3>Regulation Determination</h3><p>${esc(payload.equipmentCategory)} · ${esc(payload.capacity)} · ${now} · ${data.regulationsSearched || 0} regulations searched${deviceCount ? ` · ${deviceCount} control device${deviceCount>1?'s':''}` : ''}</p></div>`;
- 
+
+  const fullTextBadge = (data.fullTextRegsUsed > 0)
+    ? `<p style="font-size:11px;color:var(--green);margin-top:3px;">📖 Deep read: full text of ${data.fullTextRegsUsed} regulation${data.fullTextRegsUsed>1?'s':''} — ${(data.fullTextRegNames||[]).join(', ')}</p>`
+    : '<p style="font-size:11px;color:var(--amber);margin-top:3px;">⚡ Using AI training knowledge — full text not fetched for this category</p>';
+
+  let html = `<div class="results-meta"><h3>Regulation Determination</h3><p>${esc(payload.equipmentCategory)} · ${esc(payload.capacity)} · ${now} · ${data.regulationsSearched || 0} regulations searched${deviceCount ? ` · ${deviceCount} control device${deviceCount>1?'s':''}` : ''}</p>${fullTextBadge}</div>`;
+
   if (data.summary) html += `<div class="summary-card">${esc(data.summary)}</div>`;
- 
+
   if (data.newExistingDetermination) {
     html += `<div class="new-existing-card"><div class="ne-label">New / Existing Determination (auto)</div><div class="ne-value">${esc(data.newExistingDetermination)}</div></div>`;
   }
- 
+
   html += `<div class="info-row">`;
   if (data.permitType) {
     html += `<div class="info-card"><div class="label">Permit type</div><div class="value">${esc(data.permitType.determination||'Unknown')}</div><div class="sub">${esc(data.permitType.reason||'')}</div></div>`;
@@ -626,36 +658,7 @@ function renderResults(panel, data, payload) {
     html += `<div class="info-card"><div class="label">CAM (40 CFR 64)</div><div class="value" style="color:${camColor}">${data.camApplicability.status==='applies'?'✓ Applies':data.camApplicability.status==='needs-info'?'⚠ Needs info':'✗ Does not apply'}</div><div class="sub">${esc(data.camApplicability.reason||'')}</div></div>`;
   }
   html += `</div>`;
- 
-  // Render NSR/PSD section
-  if (data.nsrPsd) {
-    const nsr = data.nsrPsd;
-    const hasPsd = nsr.psdStatus === 'applies';
-    const needsPsd = nsr.psdStatus === 'needs-info';
-    html += `<div class="nsr-card ${hasPsd?'psd-applies':needsPsd?'psd-needs':''}">
-      <div class="nsr-title">NSR / PSD Preconstruction Review</div>
-      <div class="nsr-row">
-        <div class="nsr-item">
-          <div class="nsr-item-label">PSD (Attainment)</div>
-          <div class="nsr-item-status ${nsr.psdStatus==='applies'?'applies':nsr.psdStatus==='needs-info'?'needs':'not'}">${nsr.psdStatus==='applies'?'⚠ Applies':nsr.psdStatus==='needs-info'?'? Needs info':'✓ Does not apply'}</div>
-          <div class="nsr-item-reason">${esc(nsr.psdReason||'')}</div>
-        </div>
-        <div class="nsr-item">
-          <div class="nsr-item-label">Nonattainment NSR</div>
-          <div class="nsr-item-status ${nsr.nonattainmentStatus==='applies'?'applies':nsr.nonattainmentStatus==='needs-info'?'needs':'not'}">${nsr.nonattainmentStatus==='applies'?'⚠ Applies':nsr.nonattainmentStatus==='needs-info'?'? Needs info':'✓ Does not apply'}</div>
-          <div class="nsr-item-reason">${esc(nsr.nonattainmentReason||'')}</div>
-        </div>
-        <div class="nsr-item">
-          <div class="nsr-item-label">Minor NSR / State Permit</div>
-          <div class="nsr-item-status ${nsr.minorNsrStatus==='applies'?'applies':nsr.minorNsrStatus==='needs-info'?'needs':'not'}">${nsr.minorNsrStatus==='applies'?'⚠ Applies':nsr.minorNsrStatus==='needs-info'?'? Needs info':'✓ Does not apply'}</div>
-          <div class="nsr-item-reason">${esc(nsr.minorNsrReason||'')}</div>
-        </div>
-      </div>
-      ${nsr.cite?`<div class="nsr-cite">${esc(nsr.cite)}</div>`:''}
-    </div>`;
-  }
- 
- 
+
   // CAM per-device detail
   if (data.camApplicability?.devices?.length > 0) {
     html += `<div class="cam-card"><div style="font-size:12px;font-weight:600;color:var(--gray-700);margin-bottom:8px;">CAM Analysis by Control Device</div>`;
@@ -670,32 +673,32 @@ function renderResults(panel, data, payload) {
     });
     html += `</div>`;
   }
- 
+
   if (data.missingInfo?.length > 0) {
     html += `<div class="missing-info"><div class="mi-title">⚠ Additional information needed:</div><ul>${data.missingInfo.map(m=>`<li>${esc(m)}</li>`).join('')}</ul></div>`;
   }
- 
+
   html += `<div class="counts-row">
     <span class="count-badge applies">✓ ${applies.length} applicable</span>
     ${needs.length?`<span class="count-badge needs">⚠ ${needs.length} needs info</span>`:''}
     <span class="count-badge not">${notApp.length} not applicable</span>
   </div>`;
- 
+
   if (applies.length) { html += `<div class="section-label">Applicable regulations (${applies.length})</div>`; applies.forEach(r => { html += regCard(r); }); }
   if (needs.length) { html += `<div class="section-label">More information needed (${needs.length})</div>`; needs.forEach(r => { html += regCard(r); }); }
   if (notApp.length) { html += `<div class="section-label">Does not apply (${notApp.length})</div>`; notApp.forEach(r => { html += regCard(r); }); }
- 
+
   html += `<div class="action-row">
     <button class="action-btn" onclick="exportTxt()">Export as text</button>
     <button class="action-btn" onclick="copyClip()">Copy to clipboard</button>
   </div>`;
   html += `<div class="footer-note">Regulation database sourced from eCFR (ecfr.gov) and Kentucky LRC. Exemptions checked before applicability. New/existing determined automatically from construction date vs each regulation's cutoff.<br>Always verify against current official sources before finalizing permits.</div>`;
- 
+
   panel.innerHTML = html;
   panel._lastData = data;
   panel._lastPayload = payload;
 }
- 
+
 function regCard(r) {
   const sc = r.status==='applies'?'applies':r.status==='needs-info'?'needs-info':'not-applies';
   const badgeTxt = sc==='applies'?'Applies':sc==='needs-info'?'More info needed':'Does not apply';
@@ -715,14 +718,15 @@ function regCard(r) {
       <span class="badge ${sc}">${esc(r.badge||badgeTxt)}</span>
     </div>
     ${r.exemptionChecked?`<div class="reg-exemption">Exemptions checked: ${esc(r.exemptionChecked)}</div>`:''}
+    ${r.flowChartResult?`<div style="font-size:11px;color:var(--gray-400);margin-top:5px;font-style:italic;line-height:1.5;background:var(--gray-50);padding:4px 8px;border-radius:4px;">🔍 ${esc(r.flowChartResult)}</div>`:''}
     <div class="reg-reason">${esc(r.reason||'')}</div>
-    ${r.cite?`<div class="reg-cite">${esc(r.cite)}</div>`:''}
+    ${r.cite?`<div class="reg-cite">${makeCitationsClickable(r.cite, r.url)}</div>`:''}
     ${reqs}
     ${r.controlDeviceNotes?`<div class="reg-device-note">Control device: ${esc(r.controlDeviceNotes)}</div>`:''}
     ${r.url?`<a href="${esc(r.url)}" target="_blank" class="reg-link">View regulation ↗</a>`:''}
   </div>`;
 }
- 
+
 function exportTxt() {
   const panel = document.getElementById('mainPanel');
   const data = panel._lastData; const payload = panel._lastPayload;
@@ -764,7 +768,7 @@ function exportTxt() {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = `reg-determination-${Date.now()}.txt`; a.click();
 }
- 
+
 function copyClip() {
   const panel = document.getElementById('mainPanel');
   const data = panel._lastData;
@@ -772,11 +776,214 @@ function copyClip() {
   const text = data.summary + '\n\n' + (data.regulations||[]).filter(r=>r.status==='applies').map(r=>`${r.name}: ${r.reason}\nCitation: ${r.cite}`).join('\n\n');
   navigator.clipboard.writeText(text).then(() => { const btn=event.target; btn.textContent='Copied!'; setTimeout(()=>{btn.textContent='Copy to clipboard';},2000); });
 }
- 
+
+// Make citation text clickable — each §XX.XXXX(x) becomes a link to eCFR
+function makeCitationsClickable(cite, baseUrl) {
+  if (!cite) return '';
+  // Parse citation string and make each section reference clickable
+  // Pattern: §60.4205(a) or §62.16714(b),(c) or 40 CFR 60.4205
+  const escaped = esc(cite);
+  
+  // Build eCFR base from baseUrl if available
+  let ecfrBase = baseUrl || '';
+  
+  // Replace §XX.XXXX(x) patterns with clickable links
+  return escaped.replace(/§(\d+\.\d+[a-zA-Z]*)\(([^)]+)\)/g, (match, section, para) => {
+    // Extract part number from section (e.g., 60.4205 → part 60)
+    const part = section.split('.')[0];
+    const url = ecfrBase 
+      ? `${ecfrBase.split('/section-')[0]}/section-${section}#p-${section}(${para})`
+      : `https://www.ecfr.gov/current/title-40/chapter-I/subchapter-C/part-${part}/section-${section}#p-${section}(${para})`;
+    return `<a href="${url}" target="_blank" style="color:var(--blue-mid);text-decoration:none;" title="View §${section}(${para}) on eCFR">${match}</a>`;
+  }).replace(/§(\d+\.\d+[a-zA-Z]*)/g, (match, section) => {
+    const part = section.split('.')[0];
+    const url = ecfrBase
+      ? `${ecfrBase.split('/section-')[0]}/section-${section}`
+      : `https://www.ecfr.gov/current/title-40/chapter-I/subchapter-C/part-${part}/section-${section}`;
+    return `<a href="${url}" target="_blank" style="color:var(--blue-mid);text-decoration:none;" title="View §${section} on eCFR">${match}</a>`;
+  });
+}
+
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
- 
+
 checkDbStatus();
+
+// ── STATE ────────────────────────────────────────────────────────────────
+let lastDetermination = null;
+let lastEquipPayload = null;
+let chatMsgs = [];
+let chatInfo = {};
+
+// Store determination on every check
+const _origRender = window.renderResults;
+
+// ── CHAT ─────────────────────────────────────────────────────────────────
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  addBubble('user', text);
+  chatMsgs.push({ role: 'user', content: text });
+  addBubble('assistant', '...', 'typing-bubble');
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatMsgs, extractedInfo: chatInfo })
+    });
+    const data = await resp.json();
+    document.getElementById('typing-bubble')?.parentElement?.remove();
+
+    if (data.error) { addBubble('assistant', 'Error: ' + data.error); return; }
+    chatInfo = { ...chatInfo, ...(data.extractedInfo||{}) };
+    chatMsgs.push({ role: 'assistant', content: data.message });
+    addBubble('assistant', data.message);
+
+    if (data.readyForDetermination && chatInfo.equipmentCategory) {
+      addBubble('assistant', 'Running full regulation check now...');
+      await runChatCheck();
+    }
+  } catch(e) {
+    document.getElementById('typing-bubble')?.parentElement?.remove();
+    addBubble('assistant', 'Connection error. Please try again.');
+  }
+}
+
+async function runChatCheck() {
+  const payload = {
+    equipmentCategory: chatInfo.equipmentCategory||'',
+    equipmentType: chatInfo.equipmentType||'',
+    fuelType: chatInfo.fuelType||'',
+    capacity: chatInfo.capacity||'',
+    constructDate: chatInfo.constructDate||'',
+    sourceClass: chatInfo.sourceClass||'',
+    pollutantClass: chatInfo.pollutantClass||'',
+    sicCode: chatInfo.sicCode||'',
+    controlDevices: chatInfo.controlDevices||[],
+    description: chatMsgs.map(m=>m.content).join(' ')
+  };
+  try {
+    const resp = await fetch(BACKEND_URL + '/check', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if (data.error) { addBubble('assistant', 'Error: '+data.error); return; }
+    lastDetermination = data;
+    lastEquipPayload = payload;
+    const applies = (data.regulations||[]).filter(r=>r.status==='applies');
+    const notApp = (data.regulations||[]).filter(r=>r.status==='not-applies');
+    let msg = '<strong>Regulation Determination:</strong><br><br>';
+    msg += `<strong>✅ Applicable (${applies.length}):</strong><br>`;
+    applies.forEach(r => { msg += `• ${r.name}<br><small>${r.cite||''}</small><br>`; });
+    if (notApp.length) { msg += `<br><strong>❌ Does not apply (${notApp.length}):</strong><br>`; notApp.forEach(r => { msg += `• ${r.name}<br>`; }); }
+    msg += `<br><strong>Permit type:</strong> ${data.permitType?.determination||''}<br>`;
+    msg += `<strong>CAM:</strong> ${data.camApplicability?.status||''}<br><br>`;
+    msg += '<em>Want me to generate draft permit language? Just ask!</em>';
+    addBubble('assistant', msg);
+  } catch(e) { addBubble('assistant', 'Error: '+e.message); }
+}
+
+function addBubble(role, text, id) {
+  const el = document.getElementById('chatMessages');
+  const isUser = role === 'user';
+  const html = text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  const div = document.createElement('div');
+  div.style.cssText = `display:flex;justify-content:${isUser?'flex-end':'flex-start'};`;
+  const bubble = document.createElement('div');
+  if (id) bubble.id = id;
+  bubble.style.cssText = `max-width:80%;padding:10px 14px;border-radius:${isUser?'12px 12px 4px 12px':'12px 12px 12px 4px'};font-size:13px;line-height:1.6;${isUser?'background:var(--blue-mid);color:white;':'background:white;border:1px solid var(--gray-200);'}`;
+  bubble.innerHTML = html;
+  div.appendChild(bubble);
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearChat() {
+  chatMsgs = []; chatInfo = {};
+  const el = document.getElementById('chatMessages');
+  el.innerHTML = '<div style="display:flex;justify-content:flex-start;"><div style="max-width:80%;padding:10px 14px;border-radius:12px 12px 12px 4px;font-size:13px;line-height:1.6;background:white;border:1px solid var(--gray-200);">Hello! Tell me about your equipment and I will determine which regulations apply.</div></div>';
+}
+
+// ── DRAFT PERMIT LANGUAGE ─────────────────────────────────────────────────
+async function generateDraft() {
+  if (!lastDetermination) { alert('Run a regulation check first.'); return; }
+  const btn = document.getElementById('draftBtn');
+  btn.textContent = '⏳ Generating...';
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/draft', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ determination: lastDetermination, equipmentDetails: lastEquipPayload||{} })
+    });
+    const data = await resp.json();
+    btn.textContent = '📝 Draft Permit Language';
+    btn.disabled = false;
+    if (data.error) { alert('Error: '+data.error); return; }
+    renderDraft(data);
+  } catch(e) {
+    btn.textContent = '📝 Draft Permit Language';
+    btn.disabled = false;
+    alert('Error: '+e.message);
+  }
+}
+
+function renderDraft(data) {
+  document.getElementById('draftOut')?.remove();
+  const secs = [
+    {k:'V1',label:'V.1 — Emission and Operating Limitations',icon:'📋'},
+    {k:'V2',label:'V.2 — Monitoring Requirements',icon:'📊'},
+    {k:'V3',label:'V.3 — Recordkeeping Requirements',icon:'📁'},
+    {k:'V4',label:'V.4 — Reporting Requirements',icon:'📨'},
+  ];
+  let html = `<div id="draftOut" style="margin-top:24px;border:1px solid #1a7f4b;border-radius:10px;overflow:hidden;">
+    <div style="background:#1a7f4b;color:white;padding:12px 16px;font-weight:600;font-size:14px;">📝 Draft Permit Language — ${esc(data.emissionUnit||'Emission Unit')}</div>`;
+
+  secs.forEach(sec => {
+    const reqs = data.sections?.[sec.k]?.requirements||[];
+    html += `<div style="border-bottom:1px solid #e5e7eb;">
+      <div style="padding:12px 16px;font-weight:600;font-size:13px;background:#f9fafb;display:flex;justify-content:space-between;">
+        <span>${sec.icon} ${sec.label} (${reqs.length})</span>
+      </div>
+      <div style="padding:0 16px 12px;">`;
+    if (!reqs.length) {
+      html += '<div style="padding:10px 0;font-size:12px;color:#9ca3af;"><em>None identified.</em></div>';
+    } else {
+      reqs.forEach(r => {
+        html += `<div style="padding:10px 0;border-bottom:1px solid #f3f4f6;font-size:12px;line-height:1.6;">
+          <span style="font-weight:600;color:var(--blue-mid);margin-right:6px;">${esc(r.id)}</span>
+          <span>${esc(r.requirement)}</span>
+          <div style="color:#9ca3af;font-family:monospace;font-size:11px;margin-top:3px;">${esc(r.citation||'')} — ${esc(r.regulation||'')}</div>
+        </div>`;
+      });
+    }
+    html += '</div></div>';
+  });
+
+  if (data.notes) {
+    html += `<div style="border-bottom:1px solid #e5e7eb;"><div style="padding:12px 16px;font-weight:600;font-size:13px;background:#f9fafb;">📌 Reviewer Notes</div>
+      <div style="padding:12px 16px;font-size:12px;">${esc(data.notes)}</div></div>`;
+  }
+  html += `<div style="padding:12px 16px;text-align:right;"><button onclick="exportDraftText()" class="export-btn">Export draft as text</button></div></div>`;
+
+  const results = document.getElementById('results');
+  if (results) results.insertAdjacentHTML('afterend', html);
+  document.getElementById('draftOut').scrollIntoView({behavior:'smooth'});
+}
+
+function exportDraftText() {
+  const el = document.getElementById('draftOut');
+  if (!el) return;
+  const blob = new Blob([el.innerText], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'draft-permit-language.txt';
+  a.click();
+}
+
 </script>
 </body>
 </html>
- 
