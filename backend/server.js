@@ -634,7 +634,7 @@ Respond ONLY with valid JSON:
 Order: applies first, needs-info second, not-applies last.`;
 
     const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -709,7 +709,7 @@ Respond ONLY with valid JSON:
 }`;
 
     const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.1,maxOutputTokens:8192,responseMimeType:'application/json'} }) }
     );
@@ -747,7 +747,7 @@ Respond ONLY with JSON:
 }`;
 
     const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.3,maxOutputTokens:4096,responseMimeType:'application/json'} }) }
     );
@@ -849,7 +849,7 @@ Respond ONLY with valid JSON:
 
       try {
         const gemResp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,
           { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.1,maxOutputTokens:4096,responseMimeType:'application/json'} }) }
         );
