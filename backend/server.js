@@ -634,7 +634,7 @@ Respond ONLY with valid JSON:
 Order: applies first, needs-info second, not-applies last.`;
 
     const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -709,7 +709,7 @@ Respond ONLY with valid JSON:
 }`;
 
     const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.1,maxOutputTokens:8192,responseMimeType:'application/json'} }) }
     );
@@ -747,7 +747,7 @@ Respond ONLY with JSON:
 }`;
 
     const gemResp = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.3,maxOutputTokens:4096,responseMimeType:'application/json'} }) }
     );
@@ -849,7 +849,7 @@ Respond ONLY with valid JSON:
 
       try {
         const gemResp = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
           { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ contents:[{parts:[{text:prompt}]}], generationConfig:{temperature:0.1,maxOutputTokens:4096,responseMimeType:'application/json'} }) }
         );
@@ -1105,7 +1105,101 @@ app.post('/permit-docx', async (req, res) => {
   }
 });
 
+// ── FEEDBACK ENDPOINTS ────────────────────────────────────────────────────
+// POST /feedback  — engineer submits thumbs up/down on a determination
+app.post('/feedback', async (req, res) => {
+  try {
+    const {
+      determination_id,    // UUID of the determination row in regulation_checks
+      equipment_type,      // e.g. "Stationary Engine - CI Diesel"
+      rating,              // "correct" | "incorrect"
+      corrected_regulations, // array of strings — what should have applied (optional)
+      notes                // free text (optional)
+    } = req.body;
+
+    if (!rating || !['correct','incorrect'].includes(rating)) {
+      return res.status(400).json({ error: 'rating must be "correct" or "incorrect"' });
+    }
+
+    const row = {
+      determination_id:      determination_id || null,
+      equipment_type:        equipment_type   || 'Unknown',
+      rating,
+      corrected_regulations: corrected_regulations || [],
+      notes:                 notes            || '',
+      created_at:            new Date().toISOString()
+    };
+
+    const ok = await dbInsert('determination_feedback', row);
+    if (!ok) return res.status(500).json({ error: 'Failed to save feedback' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Feedback error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /accuracy  — dashboard metrics for all feedback
+app.get('/accuracy', async (req, res) => {
+  try {
+    // Fetch all feedback rows
+    const rows = await dbGet('determination_feedback', { select: '*', order: 'created_at.desc', limit: 1000 });
+
+    const total = rows.length;
+    if (total === 0) {
+      return res.json({ total: 0, correct: 0, incorrect: 0, accuracy_pct: null, by_type: [], recent: [] });
+    }
+
+    const correct   = rows.filter(r => r.rating === 'correct').length;
+    const incorrect = rows.filter(r => r.rating === 'incorrect').length;
+    const accuracy_pct = Math.round((correct / total) * 100);
+
+    // Group by equipment_type
+    const typeMap = {};
+    rows.forEach(r => {
+      const t = r.equipment_type || 'Unknown';
+      if (!typeMap[t]) typeMap[t] = { type: t, total: 0, correct: 0, incorrect: 0 };
+      typeMap[t].total++;
+      if (r.rating === 'correct')   typeMap[t].correct++;
+      else                          typeMap[t].incorrect++;
+    });
+    const by_type = Object.values(typeMap)
+      .map(t => ({ ...t, accuracy_pct: Math.round((t.correct / t.total) * 100) }))
+      .sort((a, b) => b.total - a.total);
+
+    // Last 30 days trend — group by date
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const recentRows = rows.filter(r => new Date(r.created_at) >= cutoff);
+    const dayMap = {};
+    recentRows.forEach(r => {
+      const day = r.created_at.slice(0, 10); // YYYY-MM-DD
+      if (!dayMap[day]) dayMap[day] = { date: day, total: 0, correct: 0 };
+      dayMap[day].total++;
+      if (r.rating === 'correct') dayMap[day].correct++;
+    });
+    const trend = Object.values(dayMap)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map(d => ({ ...d, accuracy_pct: Math.round((d.correct / d.total) * 100) }));
+
+    // Recent corrections (where rating=incorrect and notes or corrections present)
+    const corrections = rows
+      .filter(r => r.rating === 'incorrect')
+      .slice(0, 10)
+      .map(r => ({
+        equipment_type: r.equipment_type,
+        notes: r.notes,
+        corrected_regulations: r.corrected_regulations,
+        created_at: r.created_at
+      }));
+
+    res.json({ total, correct, incorrect, accuracy_pct, by_type, trend, corrections });
+  } catch (err) {
+    console.error('Accuracy error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`EEC AI Assistant API v15.3 running on port ${PORT}`);
+  console.log(`EEC AI Assistant API v15.4 running on port ${PORT}`);
   console.log(`Supabase: ${SUPABASE_URL ? 'SET' : 'MISSING'} | Gemini: ${GEMINI_API_KEY ? 'SET' : 'MISSING'}`);
 });
