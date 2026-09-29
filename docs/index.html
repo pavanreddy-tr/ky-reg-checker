@@ -188,6 +188,7 @@
   <div class="tab" onclick="switchTab('database')">Database Status</div>
   <div class="tab" onclick="switchTab('chat')">💬 AI Chat</div>
   <div class="tab" onclick="switchTab('permit')">📄 Permit Builder</div>
+  <div class="tab" onclick="switchTab('accuracy')">📊 Accuracy</div>
 </div>
 
 <div id="tab-checker" class="layout">
@@ -402,6 +403,17 @@
   <div id="permitOutput" style="margin-top:16px;"></div>
 </div>
 
+<div id="tab-accuracy" style="display:none;padding:1.5rem;max-width:860px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <div>
+      <h2 style="font-size:16px;font-weight:600;">Accuracy Dashboard</h2>
+      <p style="font-size:12px;color:var(--gray-400);margin-top:2px;">Feedback from permit engineers on AI determinations. Tracks where the model is right and where it needs improvement.</p>
+    </div>
+    <button onclick="loadAccuracy()" style="padding:6px 14px;font-size:12px;background:var(--blue-mid);color:white;border:none;border-radius:6px;cursor:pointer;">↻ Refresh</button>
+  </div>
+  <div id="accuracyPanel"><div style="color:var(--gray-400);font-size:13px;">Loading...</div></div>
+</div>
+
 <div id="tab-database" style="display:none;padding:1.5rem;max-width:600px;">
   <h2 style="font-size:16px;font-weight:600;margin-bottom:1rem;">Regulation Database Status</h2>
   <div id="dbPanel"><div style="color:var(--gray-400);font-size:13px;">Loading...</div></div>
@@ -512,13 +524,16 @@ function getDevices() {
 
 // Tab switching
 function switchTab(tab) {
-  const allTabs = ['checker','history','database','chat','permit'];
+  const allTabs = ['checker','history','database','chat','permit','accuracy'];
   allTabs.forEach((t, i) => {
     const el = document.getElementById('tab-' + t);
     if (el) el.style.display = t === tab ? (t === 'checker' ? 'grid' : 'block') : 'none';
     const tabEl = document.querySelectorAll('.tab')[i];
     if (tabEl) tabEl.classList.toggle('active', t === tab);
   });
+  if (tab === 'history') loadHistory();
+  if (tab === 'database') loadDbStatus();
+  if (tab === 'accuracy') loadAccuracy();
 }
 
 async function checkDbStatus() {
@@ -736,6 +751,38 @@ function renderResults(panel, data, payload) {
     <button class="action-btn" onclick="exportTxt()">Export as text</button>
     <button class="action-btn" onclick="copyClip()">Copy to clipboard</button>
   </div>`;
+
+  // ── FEEDBACK WIDGET ──────────────────────────────────────────────────────
+  const detId = data.id || null;
+  const equipType = payload.equipmentCategory || 'Unknown';
+  html += `
+  <div id="feedbackWidget" style="margin-top:16px;background:var(--gray-50);border:1px solid var(--gray-200);border-radius:10px;padding:14px 16px;">
+    <div style="font-size:12px;font-weight:600;color:var(--gray-600);margin-bottom:8px;">Was this determination correct?</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <button onclick="submitFeedback('correct','${detId}','${equipType.replace(/'/g,"\\'")}')"
+        style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:7px;border:1px solid var(--green-border);background:var(--green-light);color:var(--green);font-size:13px;font-weight:600;cursor:pointer;">
+        👍 Yes, correct
+      </button>
+      <button onclick="showFeedbackForm('${detId}','${equipType.replace(/'/g,"\\'")}')"
+        style="display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:7px;border:1px solid #fecaca;background:var(--red-light);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;">
+        👎 No, incorrect
+      </button>
+      <span id="feedbackMsg" style="font-size:12px;color:var(--gray-400);"></span>
+    </div>
+    <div id="feedbackForm" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-200);">
+      <div style="font-size:12px;font-weight:500;color:var(--gray-600);margin-bottom:6px;">What should have applied? (optional)</div>
+      <input type="text" id="fbCorrections" placeholder="e.g. 40 CFR 63 Subpart ZZZZ should have been listed" style="width:100%;padding:7px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;margin-bottom:8px;box-sizing:border-box;" />
+      <div style="font-size:12px;font-weight:500;color:var(--gray-600);margin-bottom:6px;">Notes</div>
+      <textarea id="fbNotes" placeholder="Any additional notes on what was wrong..." rows="2" style="width:100%;padding:7px 10px;border:1px solid var(--gray-300);border-radius:6px;font-size:12px;resize:none;font-family:inherit;box-sizing:border-box;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button onclick="submitFeedback('incorrect','${detId}','${equipType.replace(/'/g,"\\'")}')"
+          style="padding:7px 16px;background:var(--red);color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600;">Submit</button>
+        <button onclick="document.getElementById('feedbackForm').style.display='none'"
+          style="padding:7px 16px;background:var(--gray-100);color:var(--gray-600);border:1px solid var(--gray-200);border-radius:6px;cursor:pointer;font-size:12px;">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+
   html += `<div class="footer-note">Regulation database sourced from eCFR (ecfr.gov) and Kentucky LRC. Exemptions checked before applicability. New/existing determined automatically from construction date vs each regulation's cutoff.<br>Always verify against current official sources before finalizing permits.</div>`;
 
   panel.innerHTML = html;
@@ -1206,7 +1253,6 @@ async function generatePermit() {
 
 function downloadPermitDocx(jsonStr) {
   if (!window.lastPermitData) { alert('No permit data available.'); return; }
-  // Call the permit download endpoint
   fetch(BACKEND_URL + '/permit-docx', {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
@@ -1219,6 +1265,156 @@ function downloadPermitDocx(jsonStr) {
     a.download = `${permitNum}_Draft_Permit.docx`;
     a.click();
   }).catch(e => alert('Download error: '+e.message));
+}
+
+// ── FEEDBACK ──────────────────────────────────────────────────────────────
+function showFeedbackForm(detId, equipType) {
+  const form = document.getElementById('feedbackForm');
+  if (form) form.style.display = 'block';
+}
+
+async function submitFeedback(rating, detId, equipType) {
+  const corrections = document.getElementById('fbCorrections')?.value || '';
+  const notes       = document.getElementById('fbNotes')?.value || '';
+  const msg         = document.getElementById('feedbackMsg');
+
+  const payload = {
+    determination_id:       detId && detId !== 'null' ? detId : undefined,
+    equipment_type:         equipType || 'Unknown',
+    rating,
+    corrected_regulations:  corrections ? corrections.split(',').map(s => s.trim()).filter(Boolean) : [],
+    notes
+  };
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      const widget = document.getElementById('feedbackWidget');
+      if (widget) widget.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--green);">
+          ✓ ${rating === 'correct' ? 'Thanks — marked as correct.' : 'Feedback saved. This will help improve the model.'}
+        </div>`;
+    } else {
+      if (msg) msg.textContent = 'Error saving feedback: ' + (data.error || 'unknown error');
+    }
+  } catch (e) {
+    if (msg) msg.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ── ACCURACY DASHBOARD ────────────────────────────────────────────────────
+async function loadAccuracy() {
+  const panel = document.getElementById('accuracyPanel');
+  if (!panel) return;
+  panel.innerHTML = '<div style="color:var(--gray-400);font-size:13px;">Loading accuracy data...</div>';
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/accuracy');
+    const d    = await resp.json();
+
+    if (d.error) { panel.innerHTML = `<div style="color:var(--red);font-size:13px;">Error: ${esc(d.error)}</div>`; return; }
+
+    if (d.total === 0) {
+      panel.innerHTML = `
+        <div style="padding:40px;text-align:center;color:var(--gray-400);">
+          <div style="font-size:36px;margin-bottom:12px;">📊</div>
+          <div style="font-size:15px;font-weight:600;color:var(--gray-600);margin-bottom:6px;">No feedback yet</div>
+          <div style="font-size:13px;max-width:320px;margin:auto;">Run a regulation check and use the 👍 / 👎 buttons to start tracking accuracy.</div>
+        </div>`;
+      return;
+    }
+
+    const accColor = d.accuracy_pct >= 90 ? 'var(--green)' : d.accuracy_pct >= 75 ? 'var(--amber)' : 'var(--red)';
+    const accLabel = d.accuracy_pct >= 90 ? 'Excellent' : d.accuracy_pct >= 75 ? 'Good' : 'Needs improvement';
+
+    // Summary cards
+    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;">
+      <div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px;">
+        <div style="font-size:11px;color:var(--gray-400);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Total Reviews</div>
+        <div style="font-size:28px;font-weight:700;">${d.total}</div>
+      </div>
+      <div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px;">
+        <div style="font-size:11px;color:var(--gray-400);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Accuracy</div>
+        <div style="font-size:28px;font-weight:700;color:${accColor};">${d.accuracy_pct}%</div>
+        <div style="font-size:11px;color:${accColor};">${accLabel}</div>
+      </div>
+      <div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px;">
+        <div style="font-size:11px;color:var(--gray-400);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Correct</div>
+        <div style="font-size:28px;font-weight:700;color:var(--green);">${d.correct}</div>
+      </div>
+      <div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px;">
+        <div style="font-size:11px;color:var(--gray-400);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Incorrect</div>
+        <div style="font-size:28px;font-weight:700;color:var(--red);">${d.incorrect}</div>
+      </div>
+    </div>`;
+
+    // By equipment type
+    if (d.by_type?.length) {
+      html += `<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px;">Accuracy by Equipment Type</div>`;
+      d.by_type.forEach(t => {
+        const pct = t.accuracy_pct;
+        const barColor = pct >= 90 ? '#16a34a' : pct >= 75 ? '#d97706' : '#dc2626';
+        html += `<div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:12px;color:var(--gray-700);">${esc(t.type)}</span>
+            <span style="font-size:12px;font-weight:600;color:${barColor};">${pct}% <span style="font-weight:400;color:var(--gray-400);">(${t.correct}/${t.total})</span></span>
+          </div>
+          <div style="height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.4s;"></div>
+          </div>
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    // 30-day trend
+    if (d.trend?.length > 1) {
+      const maxPts = d.trend.length;
+      const step = Math.max(1, Math.floor(maxPts / 6));
+      html += `<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">30-Day Trend</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;height:80px;">`;
+      d.trend.forEach((day, i) => {
+        const h = Math.max(8, day.accuracy_pct * 0.7);
+        const color = day.accuracy_pct >= 90 ? '#16a34a' : day.accuracy_pct >= 75 ? '#d97706' : '#dc2626';
+        html += `<div title="${esc(day.date)}: ${day.accuracy_pct}% (${day.total} reviews)" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+          <div style="font-size:9px;color:var(--gray-400);">${day.accuracy_pct}%</div>
+          <div style="width:100%;background:${color};border-radius:3px 3px 0 0;height:${h}px;opacity:0.8;cursor:default;"></div>
+          ${i % step === 0 ? `<div style="font-size:9px;color:var(--gray-400);writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);height:36px;">${esc(day.date.slice(5))}</div>` : '<div style="height:36px;"></div>'}
+        </div>`;
+      });
+      html += `</div></div>`;
+    }
+
+    // Recent corrections
+    if (d.corrections?.length) {
+      html += `<div style="background:white;border:1px solid var(--gray-200);border-radius:8px;padding:14px 16px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">Recent Engineer Corrections</div>`;
+      d.corrections.forEach(c => {
+        const date = new Date(c.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+        html += `<div style="padding:10px 0;border-bottom:1px solid var(--gray-100);">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:12px;font-weight:500;color:var(--gray-700);">${esc(c.equipment_type)}</span>
+            <span style="font-size:11px;color:var(--gray-400);">${date}</span>
+          </div>
+          ${c.corrected_regulations?.length ? `<div style="font-size:11px;color:var(--blue-mid);margin-bottom:2px;">Correction: ${esc(c.corrected_regulations.join(', '))}</div>` : ''}
+          ${c.notes ? `<div style="font-size:11px;color:var(--gray-500);">${esc(c.notes)}</div>` : ''}
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    panel.innerHTML = html;
+  } catch (e) {
+    panel.innerHTML = `<div style="color:var(--red);font-size:13px;">Could not load accuracy data: ${esc(e.message)}</div>`;
+  }
 }
 
 </script>
